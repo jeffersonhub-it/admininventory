@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RRS & RS Monitoring System</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Font Awesome icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- Inter Font -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+<!-- SheetJS library for exporting to Excel -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: #0f172a;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(225, 29, 72, 0.12) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(37, 99, 235, 0.12) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(15, 23, 42, 0.8) 0px, transparent 100%),
+      linear-gradient(to bottom, #0f172a, #1e293b);
+    background-attachment: fixed;
+  }
+  
+  .glass-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0f172a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+  }
+
+  .badge-pending { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .badge-ongoing { background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+  .badge-done { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+  .badge-cancelled { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+  @media print {
+    body { background: white !important; color: black !important; }
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    .card-shadow { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+    table { font-size: 10px !important; }
+    th, td { padding: 4px 6px !important; }
+  }
+</style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+<!-- LOGIN / REGISTER SECTION -->
+<div id="authSection" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+  
+  <!-- Login Form Card -->
+  <div id="loginCard" class="glass-card max-w-md w-full p-8 rounded-2xl shadow-2xl border border-white/20">
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-red-600 to-rose-500 flex items-center justify-center font-bold text-white shadow-lg shadow-red-500/30 text-2xl mx-auto mb-3">
+        <i class="fa-solid fa-boxes-stacked"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-800">System Login</h2>
+      <p class="text-xs text-slate-500 mt-1">Mag-login sa iyong Account</p>
+    </div>
+
+    <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Username</label>
+        <input type="text" id="loginUsername" required placeholder="Enter username" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+        <input type="password" id="loginPassword" required placeholder="Enter password" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+      </div>
+
+      <button type="submit" class="w-full py-2.5 mt-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-md transition">
+        Login
+      </button>
+
+      <div class="text-center pt-2">
+        <button type="button" onclick="toggleAuthView('register')" class="text-xs text-red-600 hover:underline font-semibold">
+          Don't have an account? Register / Sign Up
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Register Form Card -->
+  <div id="registerCard" class="glass-card max-w-md w-full p-8 rounded-2xl shadow-2xl border border-white/20 hidden">
+    <div class="text-center mb-6">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/30 text-2xl mx-auto mb-3">
+        <i class="fa-solid fa-user-plus"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-slate-800">Account Registration</h2>
+      <p class="text-xs text-slate-500 mt-1" id="regNotice">Kailangan aprobahan ng Admin bago makalog-in</p>
+    </div>
+
+    <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+        <input type="text" id="regFullName" required placeholder="Enter full name" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Username</label>
+        <input type="text" id="regUsername" required placeholder="Choose username" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Department <span class="text-red-500">*</span></label>
+        <select id="regDepartment" required class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition bg-white">
+          <option value="">Select Department</option>
+          <option>Department Store</option>
+          <option>Supermarket</option>
+          <option>ISS</option>
+          <option>HRD</option>
+          <option>ICT</option>
+          <option>Accounting</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Password</label>
+        <input type="password" id="regPassword" required placeholder="Choose password" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Requested Role</label>
+        <select id="regRequestedRole" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition bg-white">
+          <option value="user">Regular User (View Department Only)</option>
+          <option value="admin">Administrator (Full Access)</option>
+        </select>
+      </div>
+
+      <button type="submit" class="w-full py-2.5 mt-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition">
+        Submit Registration
+      </button>
+
+      <div class="text-center pt-2">
+        <button type="button" onclick="toggleAuthView('login')" class="text-xs text-slate-600 hover:underline font-semibold">
+          Already have an account? Back to Login
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div>
+
+<!-- MAIN APP SECTION -->
+<div id="mainApp" class="hidden flex-col min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-slate-900/90 backdrop-blur-md text-white sticky top-0 z-30 shadow-lg border-b border-slate-800 no-print">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-red-600 to-rose-500 flex items-center justify-center font-bold text-white shadow-lg shadow-red-500/30 text-lg">
+          <i class="fa-solid fa-boxes-stacked"></i>
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-bold tracking-tight leading-tight">Monitoring System</h1>
+          <p class="text-xs text-slate-400 font-medium">RRS & RS Records & Status Tracking</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <div class="hidden md:flex items-center text-xs font-medium bg-slate-800/80 px-3.5 py-1.5 rounded-lg border border-slate-700/60 text-slate-300">
+          <i class="fa-regular fa-calendar-days mr-2 text-red-400"></i>
+          <span id="currentDate">--</span>
+        </div>
+
+        <!-- Account Info & Actions -->
+        <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+          <span id="userBadge" class="text-xs font-semibold uppercase px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">Admin</span>
+          <div class="flex flex-col text-left">
+            <span id="activeUserDisplay" class="text-xs font-medium text-slate-200">admin</span>
+            <span id="activeUserDeptDisplay" class="text-[10px] text-slate-400"></span>
+          </div>
+          
+          <!-- Settings Button -->
+          <button onclick="openSettingsModal()" class="ml-2 text-slate-400 hover:text-white text-xs p-1 relative" title="Account Settings & User Management">
+            <i class="fa-solid fa-gear"></i>
+            <span id="pendingBadge" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full hidden"></span>
+          </button>
+
+          <!-- Logout Button -->
+          <button onclick="handleLogout()" class="text-slate-400 hover:text-red-400 text-xs p-1" title="Logout">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+
+    <!-- Navigation Tabs & Actions -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 no-print">
+      <div class="inline-flex p-1 bg-slate-800/60 backdrop-blur rounded-xl border border-slate-700/60 w-fit">
+        <button id="rrsTab" onclick="switchTab('rrs')" class="px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 bg-slate-900 text-white shadow-md">
+          <i class="fa-solid fa-file-lines text-red-500"></i>
+          <span>RRS Records</span>
+        </button>
+        <button id="rsTab" onclick="switchTab('rs')" class="px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-receipt text-blue-500"></i>
+          <span>RS Records</span>
+        </button>
+      </div>
+
+      <div class="text-xs text-slate-300 bg-slate-800/80 border border-slate-700/80 px-3 py-2 rounded-lg shadow-sm flex items-center gap-2 backdrop-blur">
+        <i class="fa-solid fa-clock-rotate-left text-red-400"></i>
+        <span>Status updates automatically log date & timestamp</span>
+      </div>
+    </div>
+
+    <!-- SECTION: RRS -->
+    <section id="rrsSection" class="space-y-6">
+      
+      <!-- Dashboard Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between border-l-4 border-l-slate-800">
+          <div>
+            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Total RRS</p>
+            <h3 class="text-2xl font-extrabold text-slate-800 mt-1" id="rrsTotal">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
+            <i class="fa-solid fa-folder-open text-lg"></i>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between border-l-4 border-l-amber-500">
+          <div>
+            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Pending</p>
+            <h3 class="text-2xl font-extrabold text-amber-600 mt-1" id="rrsPending">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+            <i class="fa-solid fa-hourglass-start text-lg"></i>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between border-l-4 border-l-blue-500">
+          <div>
+            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Ongoing</p>
+            <h3 class="text-2xl font-extrabold text-blue-600 mt-1" id="rrsOngoing">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+            <i class="fa-solid fa-spinner text-lg"></i>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between border-l-4 border-l-emerald-500">
+          <div>
+            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Done</p>
+            <h3 class="text-2xl font-extrabold text-emerald-600 mt-1" id="rrsDone">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+            <i class="fa-solid fa-circle-check text-lg"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- RRS Input Form -->
+      <div id="rrsFormContainer" class="glass-card rounded-2xl shadow-md overflow-hidden no-print">
+        <div class="px-6 py-4 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-pen-to-square text-red-600"></i>
+            <h2 class="font-bold text-slate-800 text-base" id="rrsFormTitle">Create New RRS</h2>
+          </div>
+          <button type="button" onclick="resetRRS()" class="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition">
+            <i class="fa-solid fa-rotate-left mr-1"></i> Reset Form
+          </button>
+        </div>
+
+        <form id="rrsForm" class="p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">RRS Number <span class="text-red-500">*</span></label>
+              <input id="rrsNumber" required placeholder="e.g. RRS-2026-0001" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Department</label>
+              <select id="rrsDepartment" required class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition bg-white disabled:bg-slate-100 disabled:text-slate-500">
+                <option value="">Select Department</option>
+                <option>Department Store</option>
+                <option>Supermarket</option>
+                <option>ISS</option>
+                <option>HRD</option>
+                <option>ICT</option>
+                <option>Accounting</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Scope of Work</label>
+              <input id="rrsScope" placeholder="e.g. Printer troubleshooting, Network fix" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Quantity</label>
+              <input type="number" id="rrsQuantity" min="0" placeholder="0" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Unit</label>
+              <select id="rrsUnit" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition bg-white">
+                <option value="">Select Unit</option>
+                <option>pcs</option>
+                <option>unit</option>
+                <option>box</option>
+                <option>set</option>
+                <option>meter</option>
+                <option>lot</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Date Reported</label>
+              <input type="date" id="rrsDateReported" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Date Install</label>
+              <input type="date" id="rrsDateInstall" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Check By</label>
+              <input id="rrsCheckBy" placeholder="Technician / Staff Name" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+              <select id="rrsStatus" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 font-semibold transition bg-white">
+                <option value="PENDING">PENDING</option>
+                <option value="ONGOING">ONGOING</option>
+                <option value="DONE">DONE</option>
+                <option value="CANCELLED">CANCELLED</option>
+              </select>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Description</label>
+              <textarea id="rrsDescription" rows="2" placeholder="Enter detailed description..." class="w-full text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition resize-none"></textarea>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Complaints</label>
+              <textarea id="rrsComplaints" rows="2" placeholder="Enter reported complaints..." class="w-full text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition resize-none"></textarea>
+            </div>
+          </div>
+
+          <div class="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <button type="button" onclick="resetRRS()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancel</button>
+            <button type="submit" id="rrsSaveBtn" class="px-5 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Save RRS</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- RRS Records Table -->
+      <div class="glass-card rounded-2xl shadow-md overflow-hidden">
+        <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 no-print">
+          <div>
+            <h2 class="font-bold text-slate-800 text-base">RRS Records</h2>
+            <p class="text-xs text-slate-500">Requisition Request Slips with Status Timestamps</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+            <div class="relative flex-grow sm:flex-grow-0 sm:w-64">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input id="rrsSearch" oninput="renderRRS()" placeholder="Search RRS records..." class="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-white">
+            </div>
+            <button onclick="exportToExcel('rrs')" class="admin-only px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>Export to Excel</span>
+            </button>
+            <button onclick="printSection('rrsSection')" class="px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-print"></i>
+              <span>Print</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-100/70 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                <th class="p-3">RRS Number</th>
+                <th class="p-3">Department</th>
+                <th class="p-3">Scope</th>
+                <th class="p-3">Qty/Unit</th>
+                <th class="p-3">Check By</th>
+                <th class="p-3">Reported</th>
+                <th class="p-3">Status / Remarks</th>
+                <th class="p-3 text-slate-700 bg-amber-50/50">
+                  <i class="fa-regular fa-clock text-amber-600 mr-1"></i>Last Updated
+                </th>
+                <th class="p-3 no-print text-center admin-only">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rrsTable" class="divide-y divide-slate-200/60 text-xs text-slate-700">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: RS -->
+    <section id="rsSection" class="space-y-6 hidden">
+      
+      <!-- RS Dashboard Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between border-l-4 border-l-slate-800">
+          <div>
+            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Total RS</p>
+            <h3 class="text-2xl font-extrabold text-slate-800 mt-1" id="rsTotal">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
+            <i class="fa-solid fa-folder-closed text-lg"></i>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between border-l-4 border-l-amber-500">
+          <div>
+            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Pending</p>
+            <h3 class="text-2xl font-extrabold text-amber-600 mt-1" id="rsPending">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+            <i class="fa-solid fa-hourglass-start text-lg"></i>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between border-l-4 border-l-blue-500">
+          <div>
+            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Ongoing</p>
+            <h3 class="text-2xl font-extrabold text-blue-600 mt-1" id="rsOngoing">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+            <i class="fa-solid fa-spinner text-lg"></i>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm flex items-center justify-between border-l-4 border-l-emerald-500">
+          <div>
+            <p class="text-xs font-medium uppercase tracking-wider text-slate-500">Done</p>
+            <h3 class="text-2xl font-extrabold text-emerald-600 mt-1" id="rsDone">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+            <i class="fa-solid fa-circle-check text-lg"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- RS Input Form -->
+      <div id="rsFormContainer" class="glass-card rounded-2xl shadow-md overflow-hidden no-print">
+        <div class="px-6 py-4 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-pen-to-square text-blue-600"></i>
+            <h2 class="font-bold text-slate-800 text-base" id="rsFormTitle">Create New RS</h2>
+          </div>
+          <button type="button" onclick="resetRS()" class="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition">
+            <i class="fa-solid fa-rotate-left mr-1"></i> Reset Form
+          </button>
+        </div>
+
+        <form id="rsForm" class="p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">RS Number <span class="text-red-500">*</span></label>
+              <input id="rsNumber" required placeholder="e.g. RS-2026-0001" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Department</label>
+              <select id="rsDepartment" required class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition bg-white disabled:bg-slate-100 disabled:text-slate-500">
+                <option value="">Select Department</option>
+                <option>Department Store</option>
+                <option>Supermarket</option>
+                <option>ISS</option>
+                <option>HRD</option>
+                <option>ICT</option>
+                <option>Accounting</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Section</label>
+              <input id="rsSectionInput" placeholder="e.g. Receiving / POS" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Quantity</label>
+              <input type="number" id="rsQuantity" min="0" placeholder="0" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Description / Item Requested</label>
+              <input id="rsDescription" placeholder="Requested item or service..." class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Requested By</label>
+              <input id="rsRequestedBy" placeholder="Requester Name" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Note By</label>
+              <input id="rsNoteBy" placeholder="Approver / Staff Name" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Date Reported</label>
+              <input type="date" id="rsDateReported" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Date Needed</label>
+              <input type="date" id="rsDateNeeded" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+              <select id="rsStatus" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold transition bg-white">
+                <option value="PENDING">PENDING</option>
+                <option value="ONGOING">ONGOING</option>
+                <option value="DONE">DONE</option>
+                <option value="CANCELLED">CANCELLED</option>
+              </select>
+            </div>
+
+            <div class="md:col-span-3">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Additional Notes</label>
+              <textarea id="rsNotes" rows="2" placeholder="Additional notes..." class="w-full text-xs p-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition resize-none"></textarea>
+            </div>
+          </div>
+
+          <div class="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <button type="button" onclick="resetRS()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancel</button>
+            <button type="submit" id="rsSaveBtn" class="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Save RS</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- RS Records Table -->
+      <div class="glass-card rounded-2xl shadow-md overflow-hidden">
+        <div class="p-4 sm:p-5 border-b border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 no-print">
+          <div>
+            <h2 class="font-bold text-slate-800 text-base">RS Records</h2>
+            <p class="text-xs text-slate-500">Requisition Slips with Status Timestamps</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+            <div class="relative flex-grow sm:flex-grow-0 sm:w-64">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input id="rsSearch" oninput="renderRS()" placeholder="Search RS records..." class="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white">
+            </div>
+            <button onclick="exportToExcel('rs')" class="admin-only px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>Export to Excel</span>
+            </button>
+            <button onclick="printSection('rsSection')" class="px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-print"></i>
+              <span>Print</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-100/70 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                <th class="p-3">RS Number</th>
+                <th class="p-3">Dept / Section</th>
+                <th class="p-3">Description</th>
+                <th class="p-3">Qty</th>
+                <th class="p-3">Requested By</th>
+                <th class="p-3">Date Needed</th>
+                <th class="p-3">Status / Remarks</th>
+                <th class="p-3 text-slate-700 bg-amber-50/50">
+                  <i class="fa-regular fa-clock text-amber-600 mr-1"></i>Last Updated
+                </th>
+                <th class="p-3 no-print text-center admin-only">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rsTable" class="divide-y divide-slate-200/60 text-xs text-slate-700">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto border-t border-slate-800/80 bg-slate-950/80 backdrop-blur-md py-4 text-center text-xs text-slate-400 no-print">
+    RRS & RS Monitoring System &bull; Role-based Access Enabled
+  </footer>
+
+</div>
+
+<!-- SETTINGS & APPROVAL MODAL -->
+<div id="settingsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 hidden p-4">
+  <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 transform transition-all scale-95 opacity-0 max-h-[90vh] flex flex-col" id="settingsCard">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 shrink-0">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-gear text-slate-700 text-lg"></i>
+        <h3 class="text-base font-bold text-slate-800">Settings & User Management</h3>
+      </div>
+      <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 text-sm">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="overflow-y-auto space-y-6 pr-1 flex-grow">
+      <!-- Personal Account Form -->
+      <div>
+        <h4 class="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+          <i class="fa-solid fa-user-pen text-red-500"></i> Change My Credentials
+        </h4>
+        <form id="settingsForm" onsubmit="saveAccountSettings(event)" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Username</label>
+            <input type="text" id="settingUsername" required class="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Department</label>
+            <select id="settingDepartment" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-white">
+              <option value="">Select Department</option>
+              <option>Department Store</option>
+              <option>Supermarket</option>
+              <option>ISS</option>
+              <option>HRD</option>
+              <option>ICT</option>
+              <option>Accounting</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Current Password <span class="text-red-500">*</span></label>
+            <input type="password" id="settingCurrentPass" required placeholder="Enter old password" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">New Password</label>
+            <input type="password" id="settingNewPass" placeholder="Leave blank if unchanged" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500">
+          </div>
+
+          <div class="flex gap-2">
+            <button type="submit" class="w-full py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition">
+              Update My Credentials
+            </button>
+            <button type="button" onclick="askDeleteUserAccount()" class="px-3 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition shrink-0" title="Delete my account">
+              <i class="fa-solid fa-user-slash mr-1"></i>Delete My Account
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Admin Pending Approvals Section -->
+      <div id="adminApprovalSection" class="pt-4 border-t border-slate-100 hidden">
+        <h4 class="text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <i class="fa-solid fa-user-clock text-amber-500"></i> Pending User Approvals
+          </span>
+          <span id="pendingCountBadge" class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded-full">0 Pending</span>
+        </h4>
+        <p class="text-[11px] text-slate-500 mb-3">I-approve o i-reject ang mga bagong nag-register na users.</p>
+
+        <div id="pendingUsersList" class="space-y-3 max-h-48 overflow-y-auto">
+          <!-- Dynamic Content -->
+        </div>
+      </div>
+
+      <!-- ALL REGISTERED USERS LIST (ADMIN ONLY) -->
+      <div id="adminUserListSection" class="pt-4 border-t border-slate-100 hidden">
+        <h4 class="text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <i class="fa-solid fa-users text-blue-500"></i> Account Members List
+          </span>
+          <span id="totalUsersBadge" class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full">0 Accounts</span>
+        </h4>
+        
+        <div class="overflow-x-auto max-h-48 border rounded-lg border-slate-200">
+          <table class="w-full text-left text-[11px] text-slate-700">
+            <thead class="bg-slate-100 font-semibold text-slate-600">
+              <tr>
+                <th class="p-2">Name / User</th>
+                <th class="p-2">Dept</th>
+                <th class="p-2">Role</th>
+                <th class="p-2">Status</th>
+                <th class="p-2 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="allUsersListTable" class="divide-y divide-slate-100">
+              <!-- Dynamic Content -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VIEW / ACTIVITY LOGS (ADMIN ONLY) -->
+      <div id="adminActivityLogSection" class="pt-4 border-t border-slate-100 hidden">
+        <h4 class="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+          <i class="fa-solid fa-eye text-emerald-500"></i> User Access & View Logs
+        </h4>
+        <p class="text-[11px] text-slate-500 mb-2">Listahan ng mga huling nag-login at nag-view sa system.</p>
+
+        <div class="overflow-y-auto max-h-36 space-y-1.5 text-[11px] p-2 bg-slate-50 rounded-lg border border-slate-200" id="activityLogsList">
+          <!-- Dynamic Content -->
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- QUICK REMARKS MODAL -->
+<div id="quickRemarksModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 hidden p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 transform transition-all scale-95 opacity-0" id="quickRemarksCard">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-pen-nib text-amber-600 text-lg"></i>
+        <h3 class="text-base font-bold text-slate-800" id="quickRemarksTitle">Update Pending Remarks</h3>
+      </div>
+      <button onclick="closeQuickRemarksModal()" class="text-slate-400 hover:text-slate-600 text-sm">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <form id="quickRemarksForm" onsubmit="saveQuickRemarks(event)" class="space-y-4">
+      <input type="hidden" id="qrType">
+      <input type="hidden" id="qrIndex">
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+        <select id="qrStatus" onchange="toggleQrRemarksReq()" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none font-semibold bg-white">
+          <option value="PENDING">PENDING</option>
+          <option value="ONGOING">ONGOING</option>
+          <option value="DONE">DONE</option>
+          <option value="CANCELLED">CANCELLED</option>
+        </select>
+      </div>
+      <div id="qrRemarksDiv">
+        <label class="block text-xs font-semibold text-amber-700 mb-1">Remarks <span class="text-slate-400 font-normal">(Optional)</span></label>
+        <textarea id="qrRemarksInput" rows="3" placeholder="Ilagay ang dahilan dito..." class="w-full text-xs p-3 rounded-lg border border-amber-300 bg-amber-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/20"></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeQuickRemarksModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancel</button>
+        <button type="submit" class="px-5 py-2 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-sm transition">Save Remarks & Status</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 text-xs border border-slate-700 pointer-events-none">
+  <div id="toastIcon" class="text-emerald-400 text-base"><i class="fa-solid fa-circle-check"></i></div>
+  <span id="toastMsg">Action completed successfully.</span>
+</div>
+
+<!-- Modal Confirmation -->
+<div id="deleteModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 hidden p-4">
+  <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl border border-slate-100 transform transition-all scale-95 opacity-0" id="modalCard">
+    <div class="w-12 h-12 bg-red-100 rounded-full text-red-600 flex items-center justify-center mx-auto mb-4 text-xl">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+    <h3 class="text-base font-bold text-slate-800 mb-1" id="deleteTitle">Delete Record?</h3>
+    <p class="text-xs text-slate-500 mb-6" id="deleteMessage">Are you sure you want to delete this record?</p>
+    <div class="flex items-center justify-center gap-3">
+      <button onclick="closeDeleteModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition w-1/2">Cancel</button>
+      <button onclick="confirmDelete()" class="px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition w-1/2">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// LocalStorage Keys
+const RRS_KEY = "RRS_RECORDS";
+const RS_KEY = "RS_RECORDS";
+const USERS_KEY = "SYSTEM_ACCOUNTS";
+const LOGS_KEY = "SYSTEM_VIEW_LOGS";
+
+let rrsRecords = [];
+let rsRecords = [];
+let activityLogs = [];
+let editingRRS = -1;
+let editingRS = -1;
+let deleteType = ""; // "rrs", "rs", "user", "self_user"
+let deleteIndex = -1;
+
+// Authentication State
+let currentUser = null;
+let users = [];
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadUsers();
+  loadRecords();
+  loadLogs();
+  
+  const now = new Date();
+  document.getElementById("currentDate").textContent = now.toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric"
+  });
+
+  // Check stored session
+  const storedUser = sessionStorage.getItem("AUTH_USER");
+  if (storedUser) {
+    currentUser = JSON.parse(storedUser);
+    initializeSystem();
+  }
+});
+
+function loadUsers() {
+  const storedUsers = localStorage.getItem(USERS_KEY);
+  if (storedUsers) {
+    users = JSON.parse(storedUsers);
+  } else {
+    users = [];
+  }
+
+  // Default admin user (iss / smeagol)
+  const defaultAdminExists = users.some(u => u.username.toLowerCase() === "iss");
+  if (!defaultAdminExists) {
+    users.unshift({
+      fullName: "ISS Admin",
+      username: "iss",
+      department: "ISS",
+      password: "smeagol",
+      role: "admin",
+      status: "APPROVED"
+    });
+    saveUsers();
+  }
+}
+
+function saveUsers() {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+function loadLogs() {
+  try {
+    const stored = localStorage.getItem(LOGS_KEY);
+    activityLogs = stored ? JSON.parse(stored) : [];
+  } catch(e) {
+    activityLogs = [];
+  }
+}
+
+function logActivity(actionMessage) {
+  if (!currentUser) return;
+  const newLog = {
+    username: currentUser.username,
+    role: currentUser.role,
+    action: actionMessage,
+    timestamp: getCurrentTimestamp()
+  };
+  activityLogs.unshift(newLog);
+  if (activityLogs.length > 50) activityLogs.pop();
+  localStorage.setItem(LOGS_KEY, JSON.stringify(activityLogs));
+}
+
+function toggleAuthView(view) {
+  if (view === 'register') {
+    document.getElementById("loginCard").classList.add("hidden");
+    document.getElementById("registerCard").classList.remove("hidden");
+    document.getElementById("registerForm").reset();
+
+    const regNotice = document.getElementById("regNotice");
+    regNotice.textContent = "Kailangan aprobahan ng Admin bago makalog-in.";
+  } else {
+    document.getElementById("registerCard").classList.add("hidden");
+    document.getElementById("loginCard").classList.remove("hidden");
+    document.getElementById("loginForm").reset();
+  }
+}
+
+// User Registration Handler
+function handleRegister(e) {
+  e.preventDefault();
+  const fullName = document.getElementById("regFullName").value.trim();
+  const username = document.getElementById("regUsername").value.trim();
+  const department = document.getElementById("regDepartment").value;
+  const password = document.getElementById("regPassword").value;
+  let requestedRole = document.getElementById("regRequestedRole").value;
+
+  if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+    showToast("Username already exists! Please choose another.", true);
+    return;
+  }
+
+  const newUser = {
+    fullName: fullName,
+    username: username,
+    department: department,
+    password: password,
+    role: requestedRole,
+    status: "PENDING"
+  };
+
+  users.push(newUser);
+  saveUsers();
+
+  showToast("Registration successful! Wait for Admin approval before logging in.");
+  toggleAuthView('login');
+}
+
+// Login Handler
+function handleLogin(e) {
+  e.preventDefault();
+  const username = document.getElementById("loginUsername").value.trim();
+  const password = document.getElementById("loginPassword").value;
+
+  const foundUser = users.find(u => u.username === username && u.password === password);
+
+  if (!foundUser) {
+    showToast("Invalid Username or Password!", true);
+    return;
+  }
+
+  if (foundUser.status === "PENDING") {
+    showToast("Your account is pending Admin approval!", true);
+    return;
+  }
+
+  if (foundUser.status === "REJECTED") {
+    showToast("Your registration request was rejected by Admin.", true);
+    return;
+  }
+
+  currentUser = foundUser;
+  sessionStorage.setItem("AUTH_USER", JSON.stringify(currentUser));
+  
+  logActivity("Logged in & viewed dashboard");
+
+  initializeSystem();
+  showToast(`Welcome ${foundUser.fullName || foundUser.username}! Logged in as ${foundUser.role.toUpperCase()}.`);
+}
+
+function handleLogout() {
+  if (currentUser) {
+    logActivity("Logged out of system");
+  }
+  currentUser = null;
+  sessionStorage.removeItem("AUTH_USER");
+  document.getElementById("mainApp").classList.add("hidden");
+  document.getElementById("mainApp").classList.remove("flex");
+  document.getElementById("authSection").classList.remove("hidden");
+  toggleAuthView('login');
+  showToast("Logged out successfully.");
+}
+
+function initializeSystem() {
+  document.getElementById("authSection").classList.add("hidden");
+  document.getElementById("mainApp").classList.remove("hidden");
+  document.getElementById("mainApp").classList.add("flex");
+
+  document.getElementById("activeUserDisplay").textContent = currentUser.username;
+  document.getElementById("activeUserDeptDisplay").textContent = currentUser.department ? `(${currentUser.department})` : '';
+  
+  const badge = document.getElementById("userBadge");
+  badge.textContent = currentUser.role.toUpperCase();
+
+  // Parehong Admin at Regular User ay may access na mag-create ng RRS & RS
+  document.getElementById("rrsFormContainer").style.display = "block";
+  document.getElementById("rsFormContainer").style.display = "block";
+
+  if (currentUser.role === 'admin') {
+    badge.className = "text-xs font-semibold uppercase px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30";
+    checkPendingApprovals();
+  } else {
+    badge.className = "text-xs font-semibold uppercase px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30";
+    document.getElementById("pendingBadge").classList.add("hidden");
+  }
+
+  const adminElements = document.querySelectorAll(".admin-only");
+  adminElements.forEach(el => {
+    el.style.display = (currentUser.role === 'admin') ? "" : "none";
+  });
+
+  resetRRS();
+  resetRS();
+  renderRRS();
+  renderRS();
+  updateDashboards();
+}
+
+function checkPendingApprovals() {
+  const pendingCount = users.filter(u => u.status === 'PENDING').length;
+  const badge = document.getElementById("pendingBadge");
+  if (pendingCount > 0) {
+    badge.classList.remove("hidden");
+  } else {
+    badge.classList.add("hidden");
+  }
+}
+
+// Quick Remarks Modal Handlers for Record Table Update
+function openQuickRemarksModal(type, index) {
+  if (currentUser?.role !== 'admin') return;
+  const record = (type === 'rrs') ? rrsRecords[index] : rsRecords[index];
+  
+  document.getElementById("qrType").value = type;
+  document.getElementById("qrIndex").value = index;
+  document.getElementById("qrStatus").value = record.status || "PENDING";
+  document.getElementById("qrRemarksInput").value = record.remarks || "";
+  document.getElementById("quickRemarksTitle").textContent = `Update Remarks (${record.rrsNumber || record.rsNumber})`;
+
+  toggleQrRemarksReq();
+
+  const modal = document.getElementById("quickRemarksModal");
+  const card = document.getElementById("quickRemarksCard");
+  modal.classList.remove("hidden");
+  setTimeout(() => {
+    card.classList.remove("scale-95", "opacity-0");
+    card.classList.add("scale-100", "opacity-100");
+  }, 10);
+}
+
+function closeQuickRemarksModal() {
+  const card = document.getElementById("quickRemarksCard");
+  card.classList.remove("scale-100", "opacity-100");
+  card.classList.add("scale-95", "opacity-0");
+  setTimeout(() => {
+    document.getElementById("quickRemarksModal").classList.add("hidden");
+  }, 200);
+}
+
+function toggleQrRemarksReq() {}
+
+function saveQuickRemarks(e) {
+  e.preventDefault();
+  const type = document.getElementById("qrType").value;
+  const index = parseInt(document.getElementById("qrIndex").value);
+  const newStatus = document.getElementById("qrStatus").value;
+  const newRemarks = document.getElementById("qrRemarksInput").value.trim();
+  const currentTimestamp = getCurrentTimestamp();
+
+  if (type === 'rrs') {
+    rrsRecords[index].status = newStatus;
+    rrsRecords[index].remarks = newRemarks;
+    rrsRecords[index].statusUpdatedAt = currentTimestamp;
+    renderRRS();
+  } else {
+    rsRecords[index].status = newStatus;
+    rsRecords[index].remarks = newRemarks;
+    rsRecords[index].statusUpdatedAt = currentTimestamp;
+    renderRS();
+  }
+
+  saveAll();
+  updateDashboards();
+  closeQuickRemarksModal();
+  showToast("Record status & remarks updated successfully!");
+}
+
+// Settings Modal Handlers
+function openSettingsModal() {
+  if (!currentUser) return;
+
+  document.getElementById("settingUsername").value = currentUser.username;
+  document.getElementById("settingDepartment").value = currentUser.department || "";
+  document.getElementById("settingCurrentPass").value = "";
+  document.getElementById("settingNewPass").value = "";
+
+  const adminApprovalSection = document.getElementById("adminApprovalSection");
+  const adminUserListSection = document.getElementById("adminUserListSection");
+  const adminActivityLogSection = document.getElementById("adminActivityLogSection");
+
+  if (currentUser.role === 'admin') {
+    adminApprovalSection.classList.remove("hidden");
+    adminUserListSection.classList.remove("hidden");
+    adminActivityLogSection.classList.remove("hidden");
+
+    renderPendingUsers();
+    renderAllUsersList();
+    renderActivityLogs();
+  } else {
+    adminApprovalSection.classList.add("hidden");
+    adminUserListSection.classList.add("hidden");
+    adminActivityLogSection.classList.add("hidden");
+  }
+
+  const modal = document.getElementById("settingsModal");
+  const card = document.getElementById("settingsCard");
+  modal.classList.remove("hidden");
+  setTimeout(() => {
+    card.classList.remove("scale-95", "opacity-0");
+    card.classList.add("scale-100", "opacity-100");
+  }, 10);
+}
+
+function closeSettingsModal() {
+  const card = document.getElementById("settingsCard");
+  card.classList.remove("scale-100", "opacity-100");
+  card.classList.add("scale-95", "opacity-0");
+  setTimeout(() => {
+    document.getElementById("settingsModal").classList.add("hidden");
+  }, 200);
+}
+
+function renderPendingUsers() {
+  const listContainer = document.getElementById("pendingUsersList");
+  const pendingUsers = users.filter(u => u.status === 'PENDING');
+  document.getElementById("pendingCountBadge").textContent = `${pendingUsers.length} Pending`;
+
+  listContainer.innerHTML = "";
+
+  if (!pendingUsers.length) {
+    listContainer.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-3">No pending registration requests.</p>`;
+    return;
+  }
+
+  pendingUsers.forEach(u => {
+    const userIndex = users.indexOf(u);
+    const div = document.createElement("div");
+    div.className = "p-3 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between gap-2";
+    div.innerHTML = `
+      <div>
+        <p class="text-xs font-bold text-slate-800">${e(u.fullName || u.username)} <span class="text-[10px] text-slate-400">(@${e(u.username)})</span></p>
+        <p class="text-[10px] text-slate-500">Dept: <b>${e(u.department || 'N/A')}</b></p>
+        <div class="flex items-center gap-1 mt-1">
+          <span class="text-[10px] text-slate-500">Requested:</span>
+          <select onchange="updateUserRequestedRole(${userIndex}, this.value)" class="text-[10px] font-semibold border rounded px-1 py-0.5 bg-white text-slate-700">
+            <option value="user" ${u.role === 'user' ? 'selected' : ''}>USER ONLY</option>
+            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>ADMIN</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex items-center gap-1">
+        <button onclick="approveUser(${userIndex})" class="px-2.5 py-1 text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition" title="Approve">
+          <i class="fa-solid fa-check mr-1"></i>Approve
+        </button>
+        <button onclick="rejectUser(${userIndex})" class="px-2 py-1 text-[11px] font-semibold bg-red-100 hover:bg-red-200 text-red-600 rounded transition" title="Reject">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    `;
+    listContainer.appendChild(div);
+  });
+}
+
+function renderAllUsersList() {
+  const tableBody = document.getElementById("allUsersListTable");
+  document.getElementById("totalUsersBadge").textContent = `${users.length} Accounts`;
+  tableBody.innerHTML = "";
+
+  users.forEach((u, idx) => {
+    const tr = document.createElement("tr");
+    let statusClass = "text-amber-600 bg-amber-50";
+    if (u.status === "APPROVED") statusClass = "text-emerald-600 bg-emerald-50";
+    if (u.status === "REJECTED") statusClass = "text-red-600 bg-red-50";
+
+    const isSelf = currentUser && currentUser.username === u.username;
+    const deleteBtn = `<button onclick="askDeleteUserByAdmin(${idx})" class="text-red-600 hover:text-red-800 p-1" title="Delete Account"><i class="fa-solid fa-trash-can"></i></button>`;
+
+    tr.innerHTML = `
+      <td class="p-2 font-medium">${e(u.fullName || u.username)} <span class="text-slate-400">(@${e(u.username)})</span> ${isSelf ? '<span class="text-[9px] bg-slate-200 text-slate-700 px-1 rounded">You</span>' : ''}</td>
+      <td class="p-2 text-[10px] text-slate-600 font-medium">${e(u.department || 'N/A')}</td>
+      <td class="p-2 uppercase text-[10px] font-bold">${e(u.role)}</td>
+      <td class="p-2"><span class="px-1.5 py-0.5 rounded font-bold text-[10px] ${statusClass}">${e(u.status)}</span></td>
+      <td class="p-2 text-center">${deleteBtn}</td>
+    `;
+    tableBody.appendChild(tr);
+  });
+}
+
+function renderActivityLogs() {
+  loadLogs();
+  const logsContainer = document.getElementById("activityLogsList");
+  logsContainer.innerHTML = "";
+
+  if (!activityLogs.length) {
+    logsContainer.innerHTML = `<p class="text-slate-400 italic text-center">No view activity logged yet.</p>`;
+    return;
+  }
+
+  activityLogs.forEach(log => {
+    const div = document.createElement("div");
+    div.className = "flex justify-between items-center text-slate-600 border-b border-slate-100 pb-1";
+    div.innerHTML = `
+      <div>
+        <span class="font-bold text-slate-800">${e(log.username)}</span> 
+        <span class="text-[10px] text-slate-400">(${e(log.role)})</span>: 
+        <span>${e(log.action)}</span>
+      </div>
+      <span class="text-[10px] text-slate-400 font-mono">${e(log.timestamp)}</span>
+    `;
+    logsContainer.appendChild(div);
+  });
+}
+
+function updateUserRequestedRole(index, newRole) {
+  users[index].role = newRole;
+  saveUsers();
+  showToast(`Updated assigned role for ${users[index].username} to ${newRole.toUpperCase()}`);
+}
+
+function approveUser(index) {
+  users[index].status = "APPROVED";
+  saveUsers();
+  showToast(`Account for '${users[index].username}' has been APPROVED as ${users[index].role.toUpperCase()}.`);
+  renderPendingUsers();
+  renderAllUsersList();
+  checkPendingApprovals();
+}
+
+function rejectUser(index) {
+  users[index].status = "REJECTED";
+  saveUsers();
+  showToast(`Account request for '${users[index].username}' was REJECTED.`, true);
+  renderPendingUsers();
+  renderAllUsersList();
+  checkPendingApprovals();
+}
+
+function askDeleteUserByAdmin(index) {
+  deleteType = "user";
+  deleteIndex = index;
+  const u = users[index];
+  document.getElementById("deleteTitle").textContent = "Delete Account?";
+  document.getElementById("deleteMessage").textContent = `Are you sure you want to delete the account '${u.username}'?`;
+  openDeleteModal();
+}
+
+function askDeleteUserAccount() {
+  deleteType = "self_user";
+  deleteIndex = users.findIndex(u => u.username === currentUser.username);
+  document.getElementById("deleteTitle").textContent = "Delete My Account?";
+  document.getElementById("deleteMessage").textContent = "Are you sure you want to delete your account? You will be logged out immediately.";
+  openDeleteModal();
+}
+
+function openDeleteModal() {
+  const modal = document.getElementById("deleteModal");
+  const card = document.getElementById("modalCard");
+  modal.classList.remove("hidden");
+  setTimeout(() => {
+    card.classList.remove("scale-95", "opacity-0");
+    card.classList.add("scale-100", "opacity-100");
+  }, 10);
+}
+
+function saveAccountSettings(e) {
+  e.preventDefault();
+  const newUsername = document.getElementById("settingUsername").value.trim();
+  const newDepartment = document.getElementById("settingDepartment").value;
+  const currentPass = document.getElementById("settingCurrentPass").value;
+  const newPass = document.getElementById("settingNewPass").value;
+
+  if (currentPass !== currentUser.password) {
+    showToast("Incorrect current password!", true);
+    return;
+  }
+
+  const userIdx = users.findIndex(u => u.username === currentUser.username);
+  if (userIdx >= 0) {
+    users[userIdx].username = newUsername;
+    users[userIdx].department = newDepartment;
+    if (newPass.trim() !== "") {
+      users[userIdx].password = newPass;
+    }
+
+    currentUser = users[userIdx];
+    sessionStorage.setItem("AUTH_USER", JSON.stringify(currentUser));
+    saveUsers();
+
+    document.getElementById("activeUserDisplay").textContent = currentUser.username;
+    document.getElementById("activeUserDeptDisplay").textContent = currentUser.department ? `(${currentUser.department})` : '';
+
+    resetRRS();
+    resetRS();
+    renderRRS();
+    renderRS();
+    updateDashboards();
+
+    closeSettingsModal();
+    showToast("Account credentials updated successfully!");
+  }
+}
+
+function getCurrentTimestamp() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  
+  hours = hours % 12 || 12;
+  const formattedHours = String(hours).padStart(2, '0');
+  
+  return `${year}-${month}-${day} ${formattedHours}:${minutes} ${ampm}`;
+}
+
+function setDefaultDate(id) {
+  const d = new Date();
+  const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const elem = document.getElementById(id);
+  if (elem && !elem.value) elem.value = v;
+}
+
+function loadRecords() {
+  try {
+    const rrs = localStorage.getItem(RRS_KEY);
+    const rs = localStorage.getItem(RS_KEY);
+    rrsRecords = rrs ? JSON.parse(rrs) : [];
+    rsRecords = rs ? JSON.parse(rs) : [];
+  } catch (err) {
+    rrsRecords = [];
+    rsRecords = [];
+  }
+}
+
+function saveAll() {
+  localStorage.setItem(RRS_KEY, JSON.stringify(rrsRecords));
+  localStorage.setItem(RS_KEY, JSON.stringify(rsRecords));
+}
+
+function switchTab(type) {
+  const isRRS = type === 'rrs';
+  document.getElementById("rrsTab").className = isRRS 
+    ? "px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 bg-slate-900 text-white shadow-md"
+    : "px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white";
+    
+  document.getElementById("rsTab").className = !isRRS 
+    ? "px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 bg-slate-900 text-white shadow-md"
+    : "px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white";
+
+  document.getElementById("rrsSection").classList.toggle("hidden", !isRRS);
+  document.getElementById("rsSection").classList.toggle("hidden", isRRS);
+
+  if (currentUser) {
+    logActivity(`Switched tab to view ${type.toUpperCase()} Records`);
+  }
+}
+
+function statusBadgeHTML(status, remarks = "", type = "", index = -1) {
+  let cls = "badge-pending";
+  let icon = "fa-hourglass-start";
+  
+  if (status === "ONGOING") { cls = "badge-ongoing"; icon = "fa-spinner"; }
+  else if (status === "DONE") { cls = "badge-done"; icon = "fa-circle-check"; }
+  else if (status === "CANCELLED") { cls = "badge-cancelled"; icon = "fa-circle-xmark"; }
+  
+  let html = `<div class="flex items-center gap-1.5 flex-wrap">
+    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${cls}">
+      <i class="fa-solid ${icon}"></i>${e(status)}
+    </span>`;
+
+  if (currentUser?.role === 'admin' && type && index >= 0) {
+    html += `<button onclick="openQuickRemarksModal('${type}', ${index})" class="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded font-semibold transition admin-only" title="Update Status / Remarks"><i class="fa-solid fa-pen"></i> Quick Remarks</button>`;
+  }
+
+  html += `</div>`;
+
+  if (remarks) {
+    html += `<div class="text-[11px] text-amber-800 font-medium mt-1 italic"><i class="fa-regular fa-comment-dots mr-1"></i>${e(remarks)}</div>`;
+  }
+
+  return html;
+}
+
+function e(v) {
+  if (v == null) return "";
+  return String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+function showToast(msg, isError = false) {
+  const toast = document.getElementById("toast");
+  const toastMsg = document.getElementById("toastMsg");
+  const toastIcon = document.getElementById("toastIcon");
+
+  toastMsg.textContent = msg;
+  toastIcon.className = isError ? "text-red-400 text-base" : "text-emerald-400 text-base";
+  toastIcon.innerHTML = isError ? '<i class="fa-solid fa-circle-exclamation"></i>' : '<i class="fa-solid fa-circle-check"></i>';
+
+  toast.classList.remove("translate-y-20", "opacity-0");
+  toast.classList.add("translate-y-0", "opacity-100");
+
+  setTimeout(() => {
+    toast.classList.remove("translate-y-0", "opacity-100");
+    toast.classList.add("translate-y-20", "opacity-0");
+  }, 3000);
+}
+
+// RRS Form Submit
+document.getElementById("rrsForm").addEventListener("submit", function (evt) {
+  evt.preventDefault();
+
+  const num = document.getElementById("rrsNumber").value.trim();
+  const statusVal = document.getElementById("rrsStatus").value;
+  const currentTimestamp = getCurrentTimestamp();
+
+  // Kunin ang Department base sa role
+  let deptVal = document.getElementById("rrsDepartment").value;
+  if (currentUser && currentUser.role !== 'admin') {
+    deptVal = currentUser.department;
+  }
+
+  if (editingRRS >= 0) {
+    rrsRecords[editingRRS] = {
+      rrsNumber: num,
+      department: deptVal,
+      scope: document.getElementById("rrsScope").value.trim(),
+      quantity: document.getElementById("rrsQuantity").value,
+      unit: document.getElementById("rrsUnit").value,
+      description: document.getElementById("rrsDescription").value.trim(),
+      complaints: document.getElementById("rrsComplaints").value.trim(),
+      checkBy: document.getElementById("rrsCheckBy").value.trim(),
+      dateReported: document.getElementById("rrsDateReported").value,
+      dateInstall: document.getElementById("rrsDateInstall").value,
+      status: statusVal,
+      remarks: rrsRecords[editingRRS].remarks || "",
+      statusUpdatedAt: currentTimestamp
+    };
+    showToast(`RRS '${num}' updated successfully.`);
+  } else {
+    if (rrsRecords.some(a => a.rrsNumber.toLowerCase() === num.toLowerCase())) {
+      showToast("RRS Number already exists!", true);
+      return;
+    }
+    rrsRecords.unshift({
+      rrsNumber: num,
+      department: deptVal,
+      scope: document.getElementById("rrsScope").value.trim(),
+      quantity: document.getElementById("rrsQuantity").value,
+      unit: document.getElementById("rrsUnit").value,
+      description: document.getElementById("rrsDescription").value.trim(),
+      complaints: document.getElementById("rrsComplaints").value.trim(),
+      checkBy: document.getElementById("rrsCheckBy").value.trim(),
+      dateReported: document.getElementById("rrsDateReported").value,
+      dateInstall: document.getElementById("rrsDateInstall").value,
+      status: statusVal,
+      remarks: "",
+      statusUpdatedAt: currentTimestamp
+    });
+    showToast(`New RRS '${num}' saved.`);
+  }
+
+  saveAll();
+  resetRRS();
+  renderRRS();
+  updateDashboards();
+});
+
+function resetRRS() {
+  document.getElementById("rrsForm").reset();
+  editingRRS = -1;
+  document.getElementById("rrsFormTitle").textContent = "Create New RRS";
+  document.getElementById("rrsSaveBtn").innerHTML = '<i class="fa-solid fa-floppy-disk"></i><span>Save RRS</span>';
+  setDefaultDate("rrsDateReported");
+
+  const deptSelect = document.getElementById("rrsDepartment");
+  if (currentUser && currentUser.role !== 'admin' && currentUser.department) {
+    deptSelect.value = currentUser.department;
+    deptSelect.disabled = true;
+  } else {
+    deptSelect.disabled = false;
+  }
+}
+
+function renderRRS() {
+  const query = document.getElementById("rrsSearch").value.toLowerCase().trim();
+  const tbody = document.getElementById("rrsTable");
+  
+  // Filter by department if user is non-admin
+  let baseList = rrsRecords;
+  if (currentUser && currentUser.role !== 'admin' && currentUser.department) {
+    baseList = rrsRecords.filter(r => (r.department || '').toLowerCase() === currentUser.department.toLowerCase());
+  }
+
+  const filtered = baseList.filter(r => Object.values(r).some(val => String(val).toLowerCase().includes(query)));
+
+  tbody.innerHTML = "";
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400"><i class="fa-solid fa-folder-open text-2xl mb-2 block text-slate-300"></i>No RRS records found.</td></tr>`;
+    return;
+  }
+
+  filtered.forEach(r => {
+    const realIndex = rrsRecords.indexOf(r);
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-slate-50/80 transition-colors";
+
+    const actions = currentUser?.role === 'admin' ? `
+      <td class="p-3 no-print text-center whitespace-nowrap admin-only">
+        <div class="inline-flex gap-1">
+          <button onclick="editRRS(${realIndex})" class="p-1.5 px-2 text-xs text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100" title="Edit Full Record"><i class="fa-solid fa-pen-to-square"></i></button>
+          <button onclick="askDelete('rrs', ${realIndex})" class="p-1.5 px-2 text-xs text-red-600 bg-red-50 rounded-md hover:bg-red-100" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+      </td>` : `<td class="p-3 no-print text-center whitespace-nowrap admin-only" style="display:none"></td>`;
+
+    tr.innerHTML = `
+      <td class="p-3 font-bold text-red-600 font-mono">${e(r.rrsNumber)}</td>
+      <td class="p-3">${e(r.department) || '-'}</td>
+      <td class="p-3 max-w-xs truncate" title="${e(r.scope)}">${e(r.scope) || '-'}</td>
+      <td class="p-3">${r.quantity ? `${e(r.quantity)}${e(r.unit)}` : '-'}</td>
+      <td class="p-3">${e(r.checkBy) || '-'}</td>
+      <td class="p-3 text-slate-500 whitespace-nowrap">${e(r.dateReported) || '-'}</td>
+      <td class="p-3 whitespace-nowrap">${statusBadgeHTML(r.status, r.remarks, 'rrs', realIndex)}</td>
+      <td class="p-3 font-mono text-[11px] text-amber-900 bg-amber-50/40 font-medium whitespace-nowrap">
+        ${r.statusUpdatedAt ? `<i class="fa-solid fa-clock text-amber-500 mr-1"></i>${e(r.statusUpdatedAt)}` : 'N/A'}
+      </td>
+      ${actions}
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function editRRS(index) {
+  if (currentUser?.role !== 'admin') return;
+  const r = rrsRecords[index];
+  document.getElementById("rrsNumber").value = r.rrsNumber;
+  document.getElementById("rrsDepartment").value = r.department || "";
+  document.getElementById("rrsScope").value = r.scope || "";
+  document.getElementById("rrsQuantity").value = r.quantity || "";
+  document.getElementById("rrsUnit").value = r.unit || "";
+  document.getElementById("rrsDescription").value = r.description || "";
+  document.getElementById("rrsComplaints").value = r.complaints || "";
+  document.getElementById("rrsCheckBy").value = r.checkBy || "";
+  document.getElementById("rrsDateReported").value = r.dateReported || "";
+  document.getElementById("rrsDateInstall").value = r.dateInstall || "";
+  document.getElementById("rrsStatus").value = r.status || "PENDING";
+
+  editingRRS = index;
+  document.getElementById("rrsFormTitle").textContent = "Edit RRS Record";
+  document.getElementById("rrsSaveBtn").innerHTML = '<i class="fa-solid fa-pen"></i><span>Update RRS</span>';
+  switchTab("rrs");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// RS Form Submit
+document.getElementById("rsForm").addEventListener("submit", function (evt) {
+  evt.preventDefault();
+
+  const num = document.getElementById("rsNumber").value.trim();
+  const statusVal = document.getElementById("rsStatus").value;
+  const currentTimestamp = getCurrentTimestamp();
+
+  // Kunin ang Department base sa role
+  let deptVal = document.getElementById("rsDepartment").value;
+  if (currentUser && currentUser.role !== 'admin') {
+    deptVal = currentUser.department;
+  }
+
+  if (editingRS >= 0) {
+    rsRecords[editingRS] = {
+      rsNumber: num,
+      department: deptVal,
+      section: document.getElementById("rsSectionInput").value.trim(),
+      quantity: document.getElementById("rsQuantity").value,
+      description: document.getElementById("rsDescription").value.trim(),
+      requestedBy: document.getElementById("rsRequestedBy").value.trim(),
+      noteBy: document.getElementById("rsNoteBy").value.trim(),
+      dateReported: document.getElementById("rsDateReported").value,
+      dateNeeded: document.getElementById("rsDateNeeded").value,
+      status: statusVal,
+      remarks: rsRecords[editingRS].remarks || "",
+      notes: document.getElementById("rsNotes").value.trim(),
+      statusUpdatedAt: currentTimestamp
+    };
+    showToast(`RS '${num}' updated successfully.`);
+  } else {
+    if (rsRecords.some(a => a.rsNumber.toLowerCase() === num.toLowerCase())) {
+      showToast("RS Number already exists!", true);
+      return;
+    }
+    rsRecords.unshift({
+      rsNumber: num,
+      department: deptVal,
+      section: document.getElementById("rsSectionInput").value.trim(),
+      quantity: document.getElementById("rsQuantity").value,
+      description: document.getElementById("rsDescription").value.trim(),
+      requestedBy: document.getElementById("rsRequestedBy").value.trim(),
+      noteBy: document.getElementById("rsNoteBy").value.trim(),
+      dateReported: document.getElementById("rsDateReported").value,
+      dateNeeded: document.getElementById("rsDateNeeded").value,
+      status: statusVal,
+      remarks: "",
+      notes: document.getElementById("rsNotes").value.trim(),
+      statusUpdatedAt: currentTimestamp
+    });
+    showToast(`New RS '${num}' saved.`);
+  }
+
+  saveAll();
+  resetRS();
+  renderRS();
+  updateDashboards();
+});
+
+function resetRS() {
+  document.getElementById("rsForm").reset();
+  editingRS = -1;
+  document.getElementById("rsFormTitle").textContent = "Create New RS";
+  document.getElementById("rsSaveBtn").innerHTML = '<i class="fa-solid fa-floppy-disk"></i><span>Save RS</span>';
+  setDefaultDate("rsDateReported");
+
+  const deptSelect = document.getElementById("rsDepartment");
+  if (currentUser && currentUser.role !== 'admin' && currentUser.department) {
+    deptSelect.value = currentUser.department;
+    deptSelect.disabled = true;
+  } else {
+    deptSelect.disabled = false;
+  }
+}
+
+function renderRS() {
+  const query = document.getElementById("rsSearch").value.toLowerCase().trim();
+  const tbody = document.getElementById("rsTable");
+
+  // Filter by department if user is non-admin
+  let baseList = rsRecords;
+  if (currentUser && currentUser.role !== 'admin' && currentUser.department) {
+    baseList = rsRecords.filter(r => (r.department || '').toLowerCase() === currentUser.department.toLowerCase());
+  }
+
+  const filtered = baseList.filter(r => Object.values(r).some(val => String(val).toLowerCase().includes(query)));
+
+  tbody.innerHTML = "";
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400"><i class="fa-solid fa-folder-closed text-2xl mb-2 block text-slate-300"></i>No RS records found.</td></tr>`;
+    return;
+  }
+
+  filtered.forEach(r => {
+    const realIndex = rsRecords.indexOf(r);
+    const tr = document.createElement("tr");
+    tr.className = "hover:bg-slate-50/80 transition-colors";
+    const deptSection = [r.department, r.section].filter(Boolean).join(" / ");
+
+    const actions = currentUser?.role === 'admin' ? `
+      <td class="p-3 no-print text-center whitespace-nowrap admin-only">
+        <div class="inline-flex gap-1">
+          <button onclick="editRS(${realIndex})" class="p-1.5 px-2 text-xs text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100" title="Edit Full Record"><i class="fa-solid fa-pen-to-square"></i></button>
+          <button onclick="askDelete('rs', ${realIndex})" class="p-1.5 px-2 text-xs text-red-600 bg-red-50 rounded-md hover:bg-red-100" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+      </td>` : `<td class="p-3 no-print text-center whitespace-nowrap admin-only" style="display:none"></td>`;
+
+    tr.innerHTML = `
+      <td class="p-3 font-bold text-blue-600 font-mono">${e(r.rsNumber)}</td>
+      <td class="p-3">${e(deptSection) || '-'}</td>
+      <td class="p-3 max-w-xs truncate" title="${e(r.description)}">${e(r.description) || '-'}</td>
+      <td class="p-3">${e(r.quantity) || '-'}</td>
+      <td class="p-3">${e(r.requestedBy) || '-'}</td>
+      <td class="p-3 text-slate-500 whitespace-nowrap">${e(r.dateNeeded) || '-'}</td>
+      <td class="p-3 whitespace-nowrap">${statusBadgeHTML(r.status, r.remarks, 'rs', realIndex)}</td>
+      <td class="p-3 font-mono text-[11px] text-amber-900 bg-amber-50/40 font-medium whitespace-nowrap">
+        ${r.statusUpdatedAt ? `<i class="fa-solid fa-clock text-amber-500 mr-1"></i>${e(r.statusUpdatedAt)}` : 'N/A'}
+      </td>
+      ${actions}
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function editRS(index) {
+  if (currentUser?.role !== 'admin') return;
+  const r = rsRecords[index];
+  document.getElementById("rsNumber").value = r.rsNumber;
+  document.getElementById("rsDepartment").value = r.department || "";
+  document.getElementById("rsSectionInput").value = r.section || "";
+  document.getElementById("rsQuantity").value = r.quantity || "";
+  document.getElementById("rsDescription").value = r.description || "";
+  document.getElementById("rsRequestedBy").value = r.requestedBy || "";
+  document.getElementById("rsNoteBy").value = r.noteBy || "";
+  document.getElementById("rsDateReported").value = r.dateReported || "";
+  document.getElementById("rsDateNeeded").value = r.dateNeeded || "";
+  document.getElementById("rsStatus").value = r.status || "PENDING";
+  document.getElementById("rsNotes").value = r.notes || "";
+
+  editingRS = index;
+  document.getElementById("rsFormTitle").textContent = "Edit RS Record";
+  document.getElementById("rsSaveBtn").innerHTML = '<i class="fa-solid fa-pen"></i><span>Update RS</span>';
+  switchTab("rs");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function askDelete(type, index) {
+  if (currentUser?.role !== 'admin') return;
+  deleteType = type;
+  deleteIndex = index;
+  
+  const docNum = type === 'rrs' ? rrsRecords[index]?.rrsNumber : rsRecords[index]?.rsNumber;
+  document.getElementById("deleteTitle").textContent = "Delete Record?";
+  document.getElementById("deleteMessage").textContent = `Are you sure you want to delete ${type.toUpperCase()} record '${docNum}'?`;
+  
+  openDeleteModal();
+}
+
+function closeDeleteModal() {
+  const card = document.getElementById("modalCard");
+  card.classList.remove("scale-100", "opacity-0");
+  card.classList.add("scale-95", "opacity-0");
+  setTimeout(() => {
+    document.getElementById("deleteModal").classList.add("hidden");
+    deleteIndex = -1;
+    deleteType = "";
+  }, 200);
+}
+
+function confirmDelete() {
+  if (deleteIndex < 0) return;
+
+  if (deleteType === "rrs") {
+    if (currentUser?.role !== 'admin') return;
+    const deleted = rrsRecords.splice(deleteIndex, 1);
+    showToast(`RRS '${deleted[0]?.rrsNumber}' deleted.`);
+    saveAll();
+    renderRRS();
+    updateDashboards();
+  } else if (deleteType === "rs") {
+    if (currentUser?.role !== 'admin') return;
+    const deleted = rsRecords.splice(deleteIndex, 1);
+    showToast(`RS '${deleted[0]?.rsNumber}' deleted.`);
+    saveAll();
+    renderRS();
+    updateDashboards();
+  } else if (deleteType === "user") {
+    if (currentUser?.role !== 'admin') return;
+    const removedUser = users.splice(deleteIndex, 1);
+    saveUsers();
+    showToast(`User account '${removedUser[0]?.username}' deleted.`);
+    renderPendingUsers();
+    renderAllUsersList();
+    checkPendingApprovals();
+  } else if (deleteType === "self_user") {
+    const removedUser = users.splice(deleteIndex, 1);
+    saveUsers();
+    closeSettingsModal();
+    closeDeleteModal();
+    handleLogout();
+    showToast(`Your account '${removedUser[0]?.username}' has been deleted.`);
+    return;
+  }
+
+  closeDeleteModal();
+}
+
+function updateDashboards() {
+  let activeRrs = rrsRecords;
+  let activeRs = rsRecords;
+
+  // Compute dashboard metrics per user department if regular user
+  if (currentUser && currentUser.role !== 'admin' && currentUser.department) {
+    activeRrs = rrsRecords.filter(r => (r.department || '').toLowerCase() === currentUser.department.toLowerCase());
+    activeRs = rsRecords.filter(r => (r.department || '').toLowerCase() === currentUser.department.toLowerCase());
+  }
+
+  document.getElementById("rrsTotal").textContent = activeRrs.length;
+  document.getElementById("rrsPending").textContent = activeRrs.filter(r => r.status === "PENDING").length;
+  document.getElementById("rrsOngoing").textContent = activeRrs.filter(r => r.status === "ONGOING").length;
+  document.getElementById("rrsDone").textContent = activeRrs.filter(r => r.status === "DONE").length;
+
+  document.getElementById("rsTotal").textContent = activeRs.length;
+  document.getElementById("rsPending").textContent = activeRs.filter(r => r.status === "PENDING").length;
+  document.getElementById("rsOngoing").textContent = activeRs.filter(r => r.status === "ONGOING").length;
+  document.getElementById("rsDone").textContent = activeRs.filter(r => r.status === "DONE").length;
+}
+
+function exportToExcel(type) {
+  if (currentUser?.role !== 'admin') return;
+  let records = type === 'rrs' ? rrsRecords : rsRecords;
+
+  if (!records.length) {
+    showToast("No data to export!", true);
+    return;
+  }
+
+  const formattedData = records.map(item => {
+    if (type === 'rrs') {
+      return {
+        "RRS Number": item.rrsNumber || "",
+        "Department": item.department || "",
+        "Scope of Work": item.scope || "",
+        "Quantity": item.quantity || "",
+        "Unit": item.unit || "",
+        "Check By": item.checkBy || "",
+        "Date Reported": item.dateReported || "",
+        "Status": item.status || "",
+        "Remarks": item.remarks || "",
+        "Last Updated": item.statusUpdatedAt || ""
+      };
+    } else {
+      return {
+        "RS Number": item.rsNumber || "",
+        "Department": item.department || "",
+        "Section": item.section || "",
+        "Quantity": item.quantity || "",
+        "Description": item.description || "",
+        "Requested By": item.requestedBy || "",
+        "Date Needed": item.dateNeeded || "",
+        "Status": item.status || "",
+        "Remarks": item.remarks || "",
+        "Last Updated": item.statusUpdatedAt || ""
+      };
+    }
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(formattedData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, type.toUpperCase() + " Records");
+
+  XLSX.writeFile(workbook, `${type.toUpperCase()}_Records_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  showToast(`Exported ${type.toUpperCase()} records to Excel successfully!`);
+}
+
+function printSection(sectionId) {
+  window.print();
+}
+</script>
+</body>
+</html>
