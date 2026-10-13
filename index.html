@@ -1283,7 +1283,7 @@ const byNewest = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
 const isHead = () => currentUser?.role === "admin";
 const isAdministrator = () => currentUser?.role === "administrator";
 const isDeptScoped = () => !!currentUser && !isHead() && !isAdministrator();
-const canAddRRS = () => isHead() || currentUser?.role === "user";
+const canAddRRS = () => isHead() || isAdministrator() || currentUser?.role === "user";
 const canAddRS = () => !!currentUser;
 const canQuickUpdate = (type) => isHead() || (isAdministrator() && type === "rrs");
 const roleLabel = (r) => r === "admin" ? "HEAD ADMIN" : r === "administrator" ? "ADMINISTRATOR" : "USER";
