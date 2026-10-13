@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn()  { return request.auth != null; }
+    function myDoc()     { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function approved()  { return signedIn()
+                             && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                             && myDoc().data.status == 'APPROVED'; }
+    function role()      { return myDoc().data.role; }
+    function isHead()          { return approved() && role() == 'admin'; }
+    function isAdministrator() { return approved() && role() == 'administrator'; }
+    function isUser()          { return approved() && role() == 'user'; }
+    function myDept()    { return myDoc().data.department; }
+
+    // Status + remarks only (what an Administrator may change on an RRS)
+    function onlyStatusRemarks() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['status', 'remarks', 'statusUpdatedAt']);
+    }
+
+    match /users/{uid} {
+      allow read:   if signedIn() && (request.auth.uid == uid || isHead());
+      // self-registration: always starts as PENDING, never as head admin
+      allow create: if signedIn() && request.auth.uid == uid
+                    && request.resource.data.status == 'PENDING'
+                    && request.resource.data.role in ['user', 'administrator'];
+      allow update: if isHead();
+      allow delete: if isHead() || (signedIn() && request.auth.uid == uid);
+    }
+
+    match /rrs/{id} {
+      allow read:   if isHead() || isAdministrator()
+                    || (isUser() && resource.data.department == myDept());
+      allow create: if isHead()
+                    || (isUser() && request.resource.data.department == myDept());
+      allow update: if isHead() || (isAdministrator() && onlyStatusRemarks());
+      allow delete: if isHead();
+    }
+
+    match /rs/{id} {
+      allow read:   if isHead() || isAdministrator()
+                    || (isUser() && resource.data.department == myDept());
+      allow create: if isHead() || isAdministrator()
+                    || (isUser() && request.resource.data.department == myDept());
+      allow update: if isHead();
+      allow delete: if isHead();
+    }
+
+    match /logs/{id} {
+      allow read:   if isHead();
+      allow create: if approved();
+    }
+  }
+}

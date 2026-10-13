@@ -13,7 +13,16 @@ Your app will be live at:
 Before first use, finish the console setup:
 1. Authentication > Sign-in method > enable Email/Password
 2. Firestore Database > Create database (if not yet created)
-3. Create the first admin (Auth user iss@admininventory.local + Firestore users/{UID} doc
-   with role=admin, status=APPROVED, department=ISS, username=iss, fullName=ISS Admin)
+3. Create the default accounts (one command, see scripts/seed-accounts.js):
+
+       iss   / smeagol  -> HEAD ADMIN    (full access)
+       admin / admin1   -> ADMINISTRATOR (adds/encodes RS; in RRS can only edit Status + Remarks)
+
+   Download a service account key (Project settings > Service accounts) to
+   scripts/serviceAccountKey.json, then:
+
+       cd scripts && npm install firebase-admin && node seed-accounts.js
+
+   (Do not commit serviceAccountKey.json. Change the passwords in Settings after first login.)
 
 Hosting domains (web.app / firebaseapp.com) are authorized for Auth automatically.
