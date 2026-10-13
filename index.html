@@ -200,6 +200,8 @@
   #authSection { background: #fff !important; backdrop-filter: none !important; }
   #authSection [class*="bg-gradient"] { background: var(--ink) !important; box-shadow: none !important; }
   #authSection > div { border: 1px solid var(--card-line); }
+  .pc-wrap { transition: opacity .2s ease, transform .2s ease; }
+  .pc-wrap.off { visibility: hidden; opacity: 0; transform: translateY(-4px); pointer-events: none; }
   .lang-btn { flex: 1; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--card-line); background: #fff; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--ink-2); }
   .lang-btn:hover { border-color: var(--blue); }
   .lang-btn.on { background: var(--ink); border-color: var(--ink); color: #fff; }
@@ -637,9 +639,9 @@
               </select>
             </div>
 
-            <div>
+            <div id="rrsPcWrap" class="pc-wrap off">
               <label class="block text-xs font-semibold text-slate-700 mb-1">PC Name</label>
-              <input id="rrsPcName" placeholder="e.g. ICT-PC-01" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+              <input id="rrsPcName" disabled placeholder="e.g. ICT-PC-01" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
             </div>
 
             <div>
@@ -874,9 +876,9 @@
               </select>
             </div>
 
-            <div>
+            <div id="rsPcWrap" class="pc-wrap off">
               <label class="block text-xs font-semibold text-slate-700 mb-1">PC Name</label>
-              <input id="rsPcName" placeholder="e.g. ICT-PC-01" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
+              <input id="rsPcName" disabled placeholder="e.g. ICT-PC-01" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition">
             </div>
 
             <div>
@@ -2746,6 +2748,26 @@ function renderDeptReport() {
   tb.innerHTML = rows.length ? rows.map(([d, v]) => `<tr><td class="code">${e(d)}</td><td>${v.RRS}</td><td>${v.RS}</td><td>${v.PENDING}</td><td>${v.ONGOING}</td><td>${v.DONE}</td><td>${v.CANCELLED}</td></tr>`).join('')
     : `<tr><td colspan="7" class="empty">${L('No data for the report yet.','Wala pang datos para sa ulat.')}</td></tr>`;
 }
+
+/* ---- PC Name: only shown once a department is chosen (space is reserved, so the form never shifts) ---- */
+function syncPc(prefix) {
+  if (!prefix) { syncPc('rrs'); syncPc('rs'); return; }
+  const dept = document.getElementById(prefix + 'Department');
+  const wrap = document.getElementById(prefix + 'PcWrap');
+  const input = document.getElementById(prefix + 'PcName');
+  if (!dept || !wrap || !input) return;
+  const show = !!dept.value;
+  wrap.classList.toggle('off', !show);
+  input.disabled = !show;
+  if (!show) input.value = '';
+}
+['rrs', 'rs'].forEach(p => document.getElementById(p + 'Department').addEventListener('change', () => syncPc(p)));
+// re-sync after the original code resets / fills the form
+['resetRRS', 'resetRS', 'editRRS', 'editRS'].forEach(name => {
+  const orig = window[name];
+  window[name] = function (...args) { const r = orig.apply(this, args); syncPc(); return r; };
+});
+syncPc();
 
 // Mirror the original pending-approval dot onto the sidebar item
 new MutationObserver(() => {
