@@ -795,90 +795,263 @@
   </div>
 </div>
 
+<!-- Firebase (modular SDK via CDN) -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signOut, deleteUser, updatePassword, reauthenticateWithCredential, EmailAuthProvider
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import {
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc,
+  onSnapshot, query, where, orderBy, limit, writeBatch
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+// Firebase config (from Project settings > Your apps > SDK setup and configuration)
+const firebaseConfig = {
+  apiKey: "AIzaSyAIaOrZX0Nl-rX-deFFV0V7gqVIOotp6wk",
+  authDomain: "admininventory-c11ae.firebaseapp.com",
+  projectId: "admininventory-c11ae",
+  storageBucket: "admininventory-c11ae.firebasestorage.app",
+  messagingSenderId: "709396404430",
+  appId: "1:709396404430:web:8ce33812a396975a82589f"
+};
+
+const app = initializeApp(firebaseConfig);
+window.fb = {
+  app, auth: getAuth(app), db: getFirestore(app),
+  onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signOut, deleteUser, updatePassword, reauthenticateWithCredential, EmailAuthProvider,
+  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc,
+  onSnapshot, query, where, orderBy, limit, writeBatch
+};
+window.dispatchEvent(new Event("firebase-ready"));
+</script>
+
 <script>
-// LocalStorage Keys
-const RRS_KEY = "RRS_RECORDS";
-const RS_KEY = "RS_RECORDS";
-const USERS_KEY = "SYSTEM_ACCOUNTS";
-const LOGS_KEY = "SYSTEM_VIEW_LOGS";
+// Firebase-backed state
+// Usernames are mapped to a pseudo-email so Firebase Auth (email/password) can be used.
+const EMAIL_DOMAIN = "@admininventory.local";
+const toEmail = (u) => String(u).trim().toLowerCase() + EMAIL_DOMAIN;
+const docIdFor = (num) => encodeURIComponent(String(num).trim().toLowerCase()).replace(/\./g, "%2E");
 
 let rrsRecords = [];
 let rsRecords = [];
 let activityLogs = [];
 let editingRRS = -1;
+let editingRRSId = null;
 let editingRS = -1;
+let editingRSId = null;
 let deleteType = ""; // "rrs", "rs", "user", "self_user"
 let deleteIndex = -1;
+let deleteId = null;
+let qrRecordId = null;
 
 // Authentication State
 let currentUser = null;
 let users = [];
+let unsubs = [];
+let registering = false;
+let justLoggedIn = false;
 
-document.addEventListener("DOMContentLoaded", () => {
-  loadUsers();
-  loadRecords();
-  loadLogs();
-  
+const byNewest = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
+
+async function run(fn) {
+  try { await fn(); }
+  catch (err) {
+    console.error(err);
+    showToast("Action failed: " + (err.code || err.message), true);
+  }
+}
+
+function authErrorMsg(err) {
+  switch (err && err.code) {
+    case "auth/invalid-credential":
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+    case "auth/invalid-email":
+      return "Invalid Username or Password!";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please try again later.";
+    case "auth/network-request-failed":
+      return "Network error. Check your internet connection.";
+    case "auth/operation-not-allowed":
+      return "Email/Password sign-in is not enabled in Firebase Authentication.";
+    default:
+      return "Login failed: " + ((err && (err.code || err.message)) || "unknown error");
+  }
+}
+
+function startApp() {
   const now = new Date();
   document.getElementById("currentDate").textContent = now.toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric"
   });
-
-  // Check stored session
-  const storedUser = sessionStorage.getItem("AUTH_USER");
-  if (storedUser) {
-    currentUser = JSON.parse(storedUser);
-    initializeSystem();
-  }
-});
-
-function loadUsers() {
-  const storedUsers = localStorage.getItem(USERS_KEY);
-  if (storedUsers) {
-    users = JSON.parse(storedUsers);
-  } else {
-    users = [];
-  }
-
-  // Default admin user (iss / smeagol)
-  const defaultAdminExists = users.some(u => u.username.toLowerCase() === "iss");
-  if (!defaultAdminExists) {
-    users.unshift({
-      fullName: "ISS Admin",
-      username: "iss",
-      department: "ISS",
-      password: "smeagol",
-      role: "admin",
-      status: "APPROVED"
-    });
-    saveUsers();
-  }
+  fb.onAuthStateChanged(fb.auth, handleAuthChange);
 }
 
-function saveUsers() {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
+if (window.fb) startApp();
+else window.addEventListener("firebase-ready", startApp, { once: true });
 
-function loadLogs() {
+async function handleAuthChange(user) {
+  if (registering) return;
+
+  if (!user) {
+    resetSession();
+    return;
+  }
+
+  let snap;
   try {
-    const stored = localStorage.getItem(LOGS_KEY);
-    activityLogs = stored ? JSON.parse(stored) : [];
-  } catch(e) {
-    activityLogs = [];
+    snap = await fb.getDoc(fb.doc(fb.db, "users", user.uid));
+  } catch (err) {
+    console.error(err);
+    showToast("Cannot load your account. Check Firestore rules / connection.", true);
+    justLoggedIn = false;
+    await fb.signOut(fb.auth);
+    return;
+  }
+
+  if (!snap.exists()) {
+    if (justLoggedIn) showToast("Account not found or was deleted by Admin.", true);
+    justLoggedIn = false;
+    await fb.signOut(fb.auth);
+    return;
+  }
+
+  const profile = snap.data();
+  if (profile.status === "PENDING") {
+    if (justLoggedIn) showToast("Your account is pending Admin approval!", true);
+    justLoggedIn = false;
+    await fb.signOut(fb.auth);
+    return;
+  }
+  if (profile.status === "REJECTED") {
+    if (justLoggedIn) showToast("Your registration request was rejected by Admin.", true);
+    justLoggedIn = false;
+    await fb.signOut(fb.auth);
+    return;
+  }
+
+  currentUser = { uid: user.uid, ...profile };
+  startListeners();
+  initializeSystem();
+
+  if (justLoggedIn) {
+    justLoggedIn = false;
+    logActivity("Logged in & viewed dashboard");
+    showToast(`Welcome ${currentUser.fullName || currentUser.username}! Logged in as ${currentUser.role.toUpperCase()}.`);
+  }
+
+  if (currentUser.role === "admin") offerLocalMigration();
+}
+
+function resetSession() {
+  stopListeners();
+  currentUser = null;
+  rrsRecords = [];
+  rsRecords = [];
+  users = [];
+  activityLogs = [];
+  document.getElementById("mainApp").classList.add("hidden");
+  document.getElementById("mainApp").classList.remove("flex");
+  document.getElementById("authSection").classList.remove("hidden");
+  toggleAuthView("login");
+}
+
+function stopListeners() {
+  unsubs.forEach(u => { try { u(); } catch (e) {} });
+  unsubs = [];
+}
+
+function onListenError(err) {
+  console.error(err);
+  showToast("Realtime sync error: " + (err.code || err.message), true);
+}
+
+function startListeners() {
+  stopListeners();
+  const isAdmin = currentUser.role === "admin";
+  const dept = currentUser.department || "";
+  const scoped = (name) => isAdmin
+    ? fb.collection(fb.db, name)
+    : fb.query(fb.collection(fb.db, name), fb.where("department", "==", dept));
+
+  unsubs.push(fb.onSnapshot(scoped("rrs"), (snap) => {
+    rrsRecords = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byNewest);
+    renderRRS();
+    updateDashboards();
+  }, onListenError));
+
+  unsubs.push(fb.onSnapshot(scoped("rs"), (snap) => {
+    rsRecords = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byNewest);
+    renderRS();
+    updateDashboards();
+  }, onListenError));
+
+  if (isAdmin) {
+    unsubs.push(fb.onSnapshot(fb.collection(fb.db, "users"), (snap) => {
+      users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+      checkPendingApprovals();
+      const modalOpen = !document.getElementById("settingsModal").classList.contains("hidden");
+      if (modalOpen) { renderPendingUsers(); renderAllUsersList(); }
+    }, onListenError));
+
+    unsubs.push(fb.onSnapshot(
+      fb.query(fb.collection(fb.db, "logs"), fb.orderBy("createdAt", "desc"), fb.limit(50)),
+      (snap) => {
+        activityLogs = snap.docs.map(d => d.data());
+        const modalOpen = !document.getElementById("settingsModal").classList.contains("hidden");
+        if (modalOpen) renderActivityLogs();
+      }, onListenError));
   }
 }
 
 function logActivity(actionMessage) {
-  if (!currentUser) return;
-  const newLog = {
+  if (!currentUser) return Promise.resolve();
+  return fb.addDoc(fb.collection(fb.db, "logs"), {
     username: currentUser.username,
     role: currentUser.role,
     action: actionMessage,
-    timestamp: getCurrentTimestamp()
-  };
-  activityLogs.unshift(newLog);
-  if (activityLogs.length > 50) activityLogs.pop();
-  localStorage.setItem(LOGS_KEY, JSON.stringify(activityLogs));
+    timestamp: getCurrentTimestamp(),
+    createdAt: Date.now()
+  }).catch(err => console.warn("log failed", err));
+}
+
+// One-time import of old browser (localStorage) records into Firestore - admin only
+async function offerLocalMigration() {
+  try {
+    const rrs = JSON.parse(localStorage.getItem("RRS_RECORDS") || "[]");
+    const rs = JSON.parse(localStorage.getItem("RS_RECORDS") || "[]");
+    if (!rrs.length && !rs.length) return;
+
+    const [a, b] = await Promise.all([
+      fb.getDocs(fb.query(fb.collection(fb.db, "rrs"), fb.limit(1))),
+      fb.getDocs(fb.query(fb.collection(fb.db, "rs"), fb.limit(1)))
+    ]);
+    if (!a.empty || !b.empty) return; // Firebase already has data; don't overwrite
+
+    if (!confirm(`Found ${rrs.length} RRS and ${rs.length} RS records saved in this browser.\nUpload them to Firebase now?`)) return;
+
+    const base = Date.now();
+    const jobs = [];
+    rrs.forEach((r, i) => r.rrsNumber && jobs.push(["rrs", docIdFor(r.rrsNumber), { ...r, createdAt: base - i }]));
+    rs.forEach((r, i) => r.rsNumber && jobs.push(["rs", docIdFor(r.rsNumber), { ...r, createdAt: base - i }]));
+
+    for (let i = 0; i < jobs.length; i += 400) {
+      const batch = fb.writeBatch(fb.db);
+      jobs.slice(i, i + 400).forEach(([col, id, data]) => batch.set(fb.doc(fb.db, col, id), data));
+      await batch.commit();
+    }
+    localStorage.setItem("RRS_RECORDS_MIGRATED", JSON.stringify(rrs));
+    localStorage.setItem("RS_RECORDS_MIGRATED", JSON.stringify(rs));
+    localStorage.removeItem("RRS_RECORDS");
+    localStorage.removeItem("RS_RECORDS");
+    showToast(`Uploaded ${jobs.length} records to Firebase.`);
+  } catch (err) {
+    console.error(err);
+    showToast("Migration failed: " + (err.code || err.message), true);
+  }
 }
 
 function toggleAuthView(view) {
@@ -897,77 +1070,67 @@ function toggleAuthView(view) {
 }
 
 // User Registration Handler
-function handleRegister(e) {
+async function handleRegister(e) {
   e.preventDefault();
   const fullName = document.getElementById("regFullName").value.trim();
   const username = document.getElementById("regUsername").value.trim();
   const department = document.getElementById("regDepartment").value;
   const password = document.getElementById("regPassword").value;
-  let requestedRole = document.getElementById("regRequestedRole").value;
+  const requestedRole = document.getElementById("regRequestedRole").value;
 
-  if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
-    showToast("Username already exists! Please choose another.", true);
+  if (!/^[A-Za-z0-9._-]{3,30}$/.test(username)) {
+    showToast("Username: 3-30 characters, letters/numbers/dot/dash/underscore only.", true);
+    return;
+  }
+  if (password.length < 6) {
+    showToast("Password must be at least 6 characters.", true);
     return;
   }
 
-  const newUser = {
-    fullName: fullName,
-    username: username,
-    department: department,
-    password: password,
-    role: requestedRole,
-    status: "PENDING"
-  };
-
-  users.push(newUser);
-  saveUsers();
-
-  showToast("Registration successful! Wait for Admin approval before logging in.");
-  toggleAuthView('login');
+  registering = true;
+  try {
+    const cred = await fb.createUserWithEmailAndPassword(fb.auth, toEmail(username), password);
+    try {
+      await fb.setDoc(fb.doc(fb.db, "users", cred.user.uid), {
+        fullName, username, department, role: requestedRole,
+        status: "PENDING", createdAt: Date.now()
+      });
+    } catch (err) {
+      try { await fb.deleteUser(cred.user); } catch (e2) {}
+      throw err;
+    }
+    await fb.signOut(fb.auth);
+    showToast("Registration successful! Wait for Admin approval before logging in.");
+    toggleAuthView('login');
+  } catch (err) {
+    console.error(err);
+    if (err.code === "auth/email-already-in-use") showToast("Username already exists! Please choose another.", true);
+    else if (err.code === "auth/weak-password") showToast("Password is too weak (min 6 characters).", true);
+    else showToast("Registration failed: " + (err.code || err.message), true);
+  } finally {
+    registering = false;
+  }
 }
 
 // Login Handler
-function handleLogin(e) {
+async function handleLogin(e) {
   e.preventDefault();
   const username = document.getElementById("loginUsername").value.trim();
   const password = document.getElementById("loginPassword").value;
 
-  const foundUser = users.find(u => u.username === username && u.password === password);
-
-  if (!foundUser) {
-    showToast("Invalid Username or Password!", true);
-    return;
+  justLoggedIn = true;
+  try {
+    await fb.signInWithEmailAndPassword(fb.auth, toEmail(username), password);
+    // handleAuthChange() takes over from here
+  } catch (err) {
+    justLoggedIn = false;
+    showToast(authErrorMsg(err), true);
   }
-
-  if (foundUser.status === "PENDING") {
-    showToast("Your account is pending Admin approval!", true);
-    return;
-  }
-
-  if (foundUser.status === "REJECTED") {
-    showToast("Your registration request was rejected by Admin.", true);
-    return;
-  }
-
-  currentUser = foundUser;
-  sessionStorage.setItem("AUTH_USER", JSON.stringify(currentUser));
-  
-  logActivity("Logged in & viewed dashboard");
-
-  initializeSystem();
-  showToast(`Welcome ${foundUser.fullName || foundUser.username}! Logged in as ${foundUser.role.toUpperCase()}.`);
 }
 
-function handleLogout() {
-  if (currentUser) {
-    logActivity("Logged out of system");
-  }
-  currentUser = null;
-  sessionStorage.removeItem("AUTH_USER");
-  document.getElementById("mainApp").classList.add("hidden");
-  document.getElementById("mainApp").classList.remove("flex");
-  document.getElementById("authSection").classList.remove("hidden");
-  toggleAuthView('login');
+async function handleLogout() {
+  if (currentUser) await logActivity("Logged out of system");
+  await fb.signOut(fb.auth);
   showToast("Logged out successfully.");
 }
 
@@ -1022,6 +1185,7 @@ function openQuickRemarksModal(type, index) {
   const record = (type === 'rrs') ? rrsRecords[index] : rsRecords[index];
   
   document.getElementById("qrType").value = type;
+  qrRecordId = record.id;
   document.getElementById("qrIndex").value = index;
   document.getElementById("qrStatus").value = record.status || "PENDING";
   document.getElementById("qrRemarksInput").value = record.remarks || "";
@@ -1052,27 +1216,19 @@ function toggleQrRemarksReq() {}
 function saveQuickRemarks(e) {
   e.preventDefault();
   const type = document.getElementById("qrType").value;
-  const index = parseInt(document.getElementById("qrIndex").value);
   const newStatus = document.getElementById("qrStatus").value;
   const newRemarks = document.getElementById("qrRemarksInput").value.trim();
-  const currentTimestamp = getCurrentTimestamp();
+  const col = (type === 'rrs') ? "rrs" : "rs";
 
-  if (type === 'rrs') {
-    rrsRecords[index].status = newStatus;
-    rrsRecords[index].remarks = newRemarks;
-    rrsRecords[index].statusUpdatedAt = currentTimestamp;
-    renderRRS();
-  } else {
-    rsRecords[index].status = newStatus;
-    rsRecords[index].remarks = newRemarks;
-    rsRecords[index].statusUpdatedAt = currentTimestamp;
-    renderRS();
-  }
-
-  saveAll();
-  updateDashboards();
-  closeQuickRemarksModal();
-  showToast("Record status & remarks updated successfully!");
+  run(async () => {
+    await fb.updateDoc(fb.doc(fb.db, col, qrRecordId), {
+      status: newStatus,
+      remarks: newRemarks,
+      statusUpdatedAt: getCurrentTimestamp()
+    });
+    closeQuickRemarksModal();
+    showToast("Record status & remarks updated successfully!");
+  });
 }
 
 // Settings Modal Handlers
@@ -1081,6 +1237,8 @@ function openSettingsModal() {
 
   document.getElementById("settingUsername").value = currentUser.username;
   document.getElementById("settingDepartment").value = currentUser.department || "";
+  document.getElementById("settingDepartment").disabled = currentUser.role !== 'admin';
+  document.getElementById("settingUsername").readOnly = true;
   document.getElementById("settingCurrentPass").value = "";
   document.getElementById("settingNewPass").value = "";
 
@@ -1187,7 +1345,6 @@ function renderAllUsersList() {
 }
 
 function renderActivityLogs() {
-  loadLogs();
   const logsContainer = document.getElementById("activityLogsList");
   logsContainer.innerHTML = "";
 
@@ -1212,32 +1369,33 @@ function renderActivityLogs() {
 }
 
 function updateUserRequestedRole(index, newRole) {
-  users[index].role = newRole;
-  saveUsers();
-  showToast(`Updated assigned role for ${users[index].username} to ${newRole.toUpperCase()}`);
+  const u = users[index];
+  run(async () => {
+    await fb.updateDoc(fb.doc(fb.db, "users", u.uid), { role: newRole });
+    showToast(`Updated assigned role for ${u.username} to ${newRole.toUpperCase()}`);
+  });
 }
 
 function approveUser(index) {
-  users[index].status = "APPROVED";
-  saveUsers();
-  showToast(`Account for '${users[index].username}' has been APPROVED as ${users[index].role.toUpperCase()}.`);
-  renderPendingUsers();
-  renderAllUsersList();
-  checkPendingApprovals();
+  const u = users[index];
+  run(async () => {
+    await fb.updateDoc(fb.doc(fb.db, "users", u.uid), { status: "APPROVED" });
+    showToast(`Account for '${u.username}' has been APPROVED as ${u.role.toUpperCase()}.`);
+  });
 }
 
 function rejectUser(index) {
-  users[index].status = "REJECTED";
-  saveUsers();
-  showToast(`Account request for '${users[index].username}' was REJECTED.`, true);
-  renderPendingUsers();
-  renderAllUsersList();
-  checkPendingApprovals();
+  const u = users[index];
+  run(async () => {
+    await fb.updateDoc(fb.doc(fb.db, "users", u.uid), { status: "REJECTED" });
+    showToast(`Account request for '${u.username}' was REJECTED.`, true);
+  });
 }
 
 function askDeleteUserByAdmin(index) {
   deleteType = "user";
   deleteIndex = index;
+  deleteId = users[index].uid;
   const u = users[index];
   document.getElementById("deleteTitle").textContent = "Delete Account?";
   document.getElementById("deleteMessage").textContent = `Are you sure you want to delete the account '${u.username}'?`;
@@ -1246,7 +1404,8 @@ function askDeleteUserByAdmin(index) {
 
 function askDeleteUserAccount() {
   deleteType = "self_user";
-  deleteIndex = users.findIndex(u => u.username === currentUser.username);
+  deleteIndex = 0;
+  deleteId = currentUser.uid;
   document.getElementById("deleteTitle").textContent = "Delete My Account?";
   document.getElementById("deleteMessage").textContent = "Are you sure you want to delete your account? You will be logged out immediately.";
   openDeleteModal();
@@ -1262,29 +1421,34 @@ function openDeleteModal() {
   }, 10);
 }
 
-function saveAccountSettings(e) {
+async function saveAccountSettings(e) {
   e.preventDefault();
-  const newUsername = document.getElementById("settingUsername").value.trim();
   const newDepartment = document.getElementById("settingDepartment").value;
   const currentPass = document.getElementById("settingCurrentPass").value;
   const newPass = document.getElementById("settingNewPass").value;
 
-  if (currentPass !== currentUser.password) {
+  if (newPass.trim() !== "" && newPass.length < 6) {
+    showToast("New password must be at least 6 characters.", true);
+    return;
+  }
+
+  const user = fb.auth.currentUser;
+  try {
+    await fb.reauthenticateWithCredential(user, fb.EmailAuthProvider.credential(user.email, currentPass));
+  } catch (err) {
     showToast("Incorrect current password!", true);
     return;
   }
 
-  const userIdx = users.findIndex(u => u.username === currentUser.username);
-  if (userIdx >= 0) {
-    users[userIdx].username = newUsername;
-    users[userIdx].department = newDepartment;
-    if (newPass.trim() !== "") {
-      users[userIdx].password = newPass;
-    }
+  await run(async () => {
+    if (newPass.trim() !== "") await fb.updatePassword(user, newPass);
 
-    currentUser = users[userIdx];
-    sessionStorage.setItem("AUTH_USER", JSON.stringify(currentUser));
-    saveUsers();
+    // Only admins may change the department (it controls which records a user can see)
+    if (currentUser.role === 'admin' && newDepartment !== currentUser.department) {
+      await fb.updateDoc(fb.doc(fb.db, "users", currentUser.uid), { department: newDepartment });
+      currentUser.department = newDepartment;
+      startListeners();
+    }
 
     document.getElementById("activeUserDisplay").textContent = currentUser.username;
     document.getElementById("activeUserDeptDisplay").textContent = currentUser.department ? `(${currentUser.department})` : '';
@@ -1297,7 +1461,7 @@ function saveAccountSettings(e) {
 
     closeSettingsModal();
     showToast("Account credentials updated successfully!");
-  }
+  });
 }
 
 function getCurrentTimestamp() {
@@ -1321,23 +1485,6 @@ function setDefaultDate(id) {
   const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   const elem = document.getElementById(id);
   if (elem && !elem.value) elem.value = v;
-}
-
-function loadRecords() {
-  try {
-    const rrs = localStorage.getItem(RRS_KEY);
-    const rs = localStorage.getItem(RS_KEY);
-    rrsRecords = rrs ? JSON.parse(rrs) : [];
-    rsRecords = rs ? JSON.parse(rs) : [];
-  } catch (err) {
-    rrsRecords = [];
-    rsRecords = [];
-  }
-}
-
-function saveAll() {
-  localStorage.setItem(RRS_KEY, JSON.stringify(rrsRecords));
-  localStorage.setItem(RS_KEY, JSON.stringify(rsRecords));
 }
 
 function switchTab(type) {
@@ -1408,63 +1555,58 @@ function showToast(msg, isError = false) {
 }
 
 // RRS Form Submit
-document.getElementById("rrsForm").addEventListener("submit", function (evt) {
+document.getElementById("rrsForm").addEventListener("submit", async function (evt) {
   evt.preventDefault();
 
   const num = document.getElementById("rrsNumber").value.trim();
   const statusVal = document.getElementById("rrsStatus").value;
   const currentTimestamp = getCurrentTimestamp();
 
-  // Kunin ang Department base sa role
   let deptVal = document.getElementById("rrsDepartment").value;
   if (currentUser && currentUser.role !== 'admin') {
     deptVal = currentUser.department;
   }
 
-  if (editingRRS >= 0) {
-    rrsRecords[editingRRS] = {
-      rrsNumber: num,
-      department: deptVal,
-      scope: document.getElementById("rrsScope").value.trim(),
-      quantity: document.getElementById("rrsQuantity").value,
-      unit: document.getElementById("rrsUnit").value,
-      description: document.getElementById("rrsDescription").value.trim(),
-      complaints: document.getElementById("rrsComplaints").value.trim(),
-      checkBy: document.getElementById("rrsCheckBy").value.trim(),
-      dateReported: document.getElementById("rrsDateReported").value,
-      dateInstall: document.getElementById("rrsDateInstall").value,
-      status: statusVal,
-      remarks: rrsRecords[editingRRS].remarks || "",
-      statusUpdatedAt: currentTimestamp
-    };
-    showToast(`RRS '${num}' updated successfully.`);
-  } else {
-    if (rrsRecords.some(a => a.rrsNumber.toLowerCase() === num.toLowerCase())) {
-      showToast("RRS Number already exists!", true);
-      return;
-    }
-    rrsRecords.unshift({
-      rrsNumber: num,
-      department: deptVal,
-      scope: document.getElementById("rrsScope").value.trim(),
-      quantity: document.getElementById("rrsQuantity").value,
-      unit: document.getElementById("rrsUnit").value,
-      description: document.getElementById("rrsDescription").value.trim(),
-      complaints: document.getElementById("rrsComplaints").value.trim(),
-      checkBy: document.getElementById("rrsCheckBy").value.trim(),
-      dateReported: document.getElementById("rrsDateReported").value,
-      dateInstall: document.getElementById("rrsDateInstall").value,
-      status: statusVal,
-      remarks: "",
-      statusUpdatedAt: currentTimestamp
-    });
-    showToast(`New RRS '${num}' saved.`);
-  }
+  const existing = editingRRS >= 0 ? rrsRecords.find(r => r.id === editingRRSId) : null;
+  const data = {
+    rrsNumber: num,
+    department: deptVal,
+    scope: document.getElementById("rrsScope").value.trim(),
+    quantity: document.getElementById("rrsQuantity").value,
+    unit: document.getElementById("rrsUnit").value,
+    description: document.getElementById("rrsDescription").value.trim(),
+    complaints: document.getElementById("rrsComplaints").value.trim(),
+    checkBy: document.getElementById("rrsCheckBy").value.trim(),
+    dateReported: document.getElementById("rrsDateReported").value,
+    dateInstall: document.getElementById("rrsDateInstall").value,
+    status: statusVal,
+    remarks: existing ? (existing.remarks || "") : "",
+    statusUpdatedAt: currentTimestamp
+  };
+  const newId = docIdFor(num);
 
-  saveAll();
-  resetRRS();
-  renderRRS();
-  updateDashboards();
+  try {
+    if (existing) {
+      const createdAt = existing.createdAt || Date.now();
+      if (newId !== existing.id) {
+        if (rrsRecords.some(a => a.id === newId)) { showToast("RRS Number already exists!", true); return; }
+        await fb.setDoc(fb.doc(fb.db, "rrs", newId), { ...data, createdAt });
+        await fb.deleteDoc(fb.doc(fb.db, "rrs", existing.id));
+      } else {
+        await fb.setDoc(fb.doc(fb.db, "rrs", existing.id), { ...data, createdAt });
+      }
+      showToast(`RRS '${num}' updated successfully.`);
+    } else {
+      if (rrsRecords.some(a => a.id === newId)) { showToast("RRS Number already exists!", true); return; }
+      await fb.setDoc(fb.doc(fb.db, "rrs", newId), { ...data, createdAt: Date.now() });
+      showToast(`New RRS '${num}' saved.`);
+    }
+    resetRRS();
+  } catch (err) {
+    console.error(err);
+    if (!existing && err.code === "permission-denied") showToast("RRS Number already exists!", true);
+    else showToast("Save failed: " + (err.code || err.message), true);
+  }
 });
 
 function resetRRS() {
@@ -1548,6 +1690,7 @@ function editRRS(index) {
   document.getElementById("rrsStatus").value = r.status || "PENDING";
 
   editingRRS = index;
+  editingRRSId = r.id;
   document.getElementById("rrsFormTitle").textContent = "Edit RRS Record";
   document.getElementById("rrsSaveBtn").innerHTML = '<i class="fa-solid fa-pen"></i><span>Update RRS</span>';
   switchTab("rrs");
@@ -1555,63 +1698,58 @@ function editRRS(index) {
 }
 
 // RS Form Submit
-document.getElementById("rsForm").addEventListener("submit", function (evt) {
+document.getElementById("rsForm").addEventListener("submit", async function (evt) {
   evt.preventDefault();
 
   const num = document.getElementById("rsNumber").value.trim();
   const statusVal = document.getElementById("rsStatus").value;
   const currentTimestamp = getCurrentTimestamp();
 
-  // Kunin ang Department base sa role
   let deptVal = document.getElementById("rsDepartment").value;
   if (currentUser && currentUser.role !== 'admin') {
     deptVal = currentUser.department;
   }
 
-  if (editingRS >= 0) {
-    rsRecords[editingRS] = {
-      rsNumber: num,
-      department: deptVal,
-      section: document.getElementById("rsSectionInput").value.trim(),
-      quantity: document.getElementById("rsQuantity").value,
-      description: document.getElementById("rsDescription").value.trim(),
-      requestedBy: document.getElementById("rsRequestedBy").value.trim(),
-      noteBy: document.getElementById("rsNoteBy").value.trim(),
-      dateReported: document.getElementById("rsDateReported").value,
-      dateNeeded: document.getElementById("rsDateNeeded").value,
-      status: statusVal,
-      remarks: rsRecords[editingRS].remarks || "",
-      notes: document.getElementById("rsNotes").value.trim(),
-      statusUpdatedAt: currentTimestamp
-    };
-    showToast(`RS '${num}' updated successfully.`);
-  } else {
-    if (rsRecords.some(a => a.rsNumber.toLowerCase() === num.toLowerCase())) {
-      showToast("RS Number already exists!", true);
-      return;
-    }
-    rsRecords.unshift({
-      rsNumber: num,
-      department: deptVal,
-      section: document.getElementById("rsSectionInput").value.trim(),
-      quantity: document.getElementById("rsQuantity").value,
-      description: document.getElementById("rsDescription").value.trim(),
-      requestedBy: document.getElementById("rsRequestedBy").value.trim(),
-      noteBy: document.getElementById("rsNoteBy").value.trim(),
-      dateReported: document.getElementById("rsDateReported").value,
-      dateNeeded: document.getElementById("rsDateNeeded").value,
-      status: statusVal,
-      remarks: "",
-      notes: document.getElementById("rsNotes").value.trim(),
-      statusUpdatedAt: currentTimestamp
-    });
-    showToast(`New RS '${num}' saved.`);
-  }
+  const existing = editingRS >= 0 ? rsRecords.find(r => r.id === editingRSId) : null;
+  const data = {
+    rsNumber: num,
+    department: deptVal,
+    section: document.getElementById("rsSectionInput").value.trim(),
+    quantity: document.getElementById("rsQuantity").value,
+    description: document.getElementById("rsDescription").value.trim(),
+    requestedBy: document.getElementById("rsRequestedBy").value.trim(),
+    noteBy: document.getElementById("rsNoteBy").value.trim(),
+    dateReported: document.getElementById("rsDateReported").value,
+    dateNeeded: document.getElementById("rsDateNeeded").value,
+    status: statusVal,
+    remarks: existing ? (existing.remarks || "") : "",
+    notes: document.getElementById("rsNotes").value.trim(),
+    statusUpdatedAt: currentTimestamp
+  };
+  const newId = docIdFor(num);
 
-  saveAll();
-  resetRS();
-  renderRS();
-  updateDashboards();
+  try {
+    if (existing) {
+      const createdAt = existing.createdAt || Date.now();
+      if (newId !== existing.id) {
+        if (rsRecords.some(a => a.id === newId)) { showToast("RS Number already exists!", true); return; }
+        await fb.setDoc(fb.doc(fb.db, "rs", newId), { ...data, createdAt });
+        await fb.deleteDoc(fb.doc(fb.db, "rs", existing.id));
+      } else {
+        await fb.setDoc(fb.doc(fb.db, "rs", existing.id), { ...data, createdAt });
+      }
+      showToast(`RS '${num}' updated successfully.`);
+    } else {
+      if (rsRecords.some(a => a.id === newId)) { showToast("RS Number already exists!", true); return; }
+      await fb.setDoc(fb.doc(fb.db, "rs", newId), { ...data, createdAt: Date.now() });
+      showToast(`New RS '${num}' saved.`);
+    }
+    resetRS();
+  } catch (err) {
+    console.error(err);
+    if (!existing && err.code === "permission-denied") showToast("RS Number already exists!", true);
+    else showToast("Save failed: " + (err.code || err.message), true);
+  }
 });
 
 function resetRS() {
@@ -1696,6 +1834,7 @@ function editRS(index) {
   document.getElementById("rsNotes").value = r.notes || "";
 
   editingRS = index;
+  editingRSId = r.id;
   document.getElementById("rsFormTitle").textContent = "Edit RS Record";
   document.getElementById("rsSaveBtn").innerHTML = '<i class="fa-solid fa-pen"></i><span>Update RS</span>';
   switchTab("rs");
@@ -1706,11 +1845,13 @@ function askDelete(type, index) {
   if (currentUser?.role !== 'admin') return;
   deleteType = type;
   deleteIndex = index;
-  
-  const docNum = type === 'rrs' ? rrsRecords[index]?.rrsNumber : rsRecords[index]?.rsNumber;
+  const rec = type === 'rrs' ? rrsRecords[index] : rsRecords[index];
+  deleteId = rec?.id || null;
+
+  const docNum = type === 'rrs' ? rec?.rrsNumber : rec?.rsNumber;
   document.getElementById("deleteTitle").textContent = "Delete Record?";
   document.getElementById("deleteMessage").textContent = `Are you sure you want to delete ${type.toUpperCase()} record '${docNum}'?`;
-  
+
   openDeleteModal();
 }
 
@@ -1722,41 +1863,48 @@ function closeDeleteModal() {
     document.getElementById("deleteModal").classList.add("hidden");
     deleteIndex = -1;
     deleteType = "";
+    deleteId = null;
   }, 200);
 }
 
-function confirmDelete() {
-  if (deleteIndex < 0) return;
+async function confirmDelete() {
+  if (!deleteType || !deleteId) return;
+  const type = deleteType;
+  const id = deleteId;
+  const isAdmin = currentUser?.role === 'admin';
 
-  if (deleteType === "rrs") {
-    if (currentUser?.role !== 'admin') return;
-    const deleted = rrsRecords.splice(deleteIndex, 1);
-    showToast(`RRS '${deleted[0]?.rrsNumber}' deleted.`);
-    saveAll();
-    renderRRS();
-    updateDashboards();
-  } else if (deleteType === "rs") {
-    if (currentUser?.role !== 'admin') return;
-    const deleted = rsRecords.splice(deleteIndex, 1);
-    showToast(`RS '${deleted[0]?.rsNumber}' deleted.`);
-    saveAll();
-    renderRS();
-    updateDashboards();
-  } else if (deleteType === "user") {
-    if (currentUser?.role !== 'admin') return;
-    const removedUser = users.splice(deleteIndex, 1);
-    saveUsers();
-    showToast(`User account '${removedUser[0]?.username}' deleted.`);
-    renderPendingUsers();
-    renderAllUsersList();
-    checkPendingApprovals();
-  } else if (deleteType === "self_user") {
-    const removedUser = users.splice(deleteIndex, 1);
-    saveUsers();
+  if (type === "rrs" || type === "rs") {
+    if (!isAdmin) return;
+    const rec = (type === "rrs" ? rrsRecords : rsRecords).find(r => r.id === id);
+    await run(async () => {
+      await fb.deleteDoc(fb.doc(fb.db, type, id));
+      showToast(`${type.toUpperCase()} '${rec?.rrsNumber || rec?.rsNumber || id}' deleted.`);
+    });
+  } else if (type === "user") {
+    if (!isAdmin) return;
+    const u = users.find(x => x.uid === id);
+    await run(async () => {
+      await fb.deleteDoc(fb.doc(fb.db, "users", id));
+      showToast(`User account '${u?.username}' deleted.`);
+    });
+  } else if (type === "self_user") {
+    const name = currentUser.username;
+    const user = fb.auth.currentUser;
+    stopListeners();
+    try {
+      await fb.deleteDoc(fb.doc(fb.db, "users", currentUser.uid));
+    } catch (err) {
+      console.error(err);
+      startListeners();
+      closeDeleteModal();
+      showToast("Delete failed: " + (err.code || err.message), true);
+      return;
+    }
+    try { await fb.deleteUser(user); } catch (err) { console.warn(err); }
     closeSettingsModal();
     closeDeleteModal();
-    handleLogout();
-    showToast(`Your account '${removedUser[0]?.username}' has been deleted.`);
+    await fb.signOut(fb.auth).catch(() => {});
+    showToast(`Your account '${name}' has been deleted.`);
     return;
   }
 
