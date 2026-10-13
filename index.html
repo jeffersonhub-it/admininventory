@@ -8,48 +8,115 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- Font Awesome icons -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<!-- Inter Font -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+<!-- IBM Plex Sans -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <!-- SheetJS library for exporting to Excel -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
+  :root {
+    --canvas: #eef1f4;
+    --panel: #ffffff;
+    --ink: #1c2733;
+    --muted: #5d6a79;
+    --rule: #d5dbe2;
+    --accent: #1d4e89;
+    --accent-dark: #163d6d;
+  }
+
   body {
-    font-family: 'Inter', sans-serif;
-    background-color: #0f172a;
-    background-image: 
-      radial-gradient(at 0% 0%, rgba(225, 29, 72, 0.12) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, rgba(37, 99, 235, 0.12) 0px, transparent 50%),
-      radial-gradient(at 50% 100%, rgba(15, 23, 42, 0.8) 0px, transparent 100%),
-      linear-gradient(to bottom, #0f172a, #1e293b);
-    background-attachment: fixed;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    background: var(--canvas) !important;
+    background-image: none !important;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
   }
-  
+
+  /* Panels: flat, ruled, no glass */
   .glass-card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: var(--panel) !important;
+    backdrop-filter: none !important;
+    border: 1px solid var(--rule) !important;
+    box-shadow: none !important;
   }
+  .rounded-2xl { border-radius: 8px !important; }
+  .rounded-xl  { border-radius: 6px !important; }
+  .rounded-lg  { border-radius: 5px !important; }
+  .shadow-md, .shadow-sm, .shadow-lg, .shadow-2xl { box-shadow: none !important; }
+  #settingsCard, #modalCard, #quickRemarksCard { box-shadow: 0 8px 24px rgba(28,39,51,.18) !important; }
 
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: #0f172a;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #334155;
-    border-radius: 4px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #475569;
-  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-  .badge-pending { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-  .badge-ongoing { background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-  .badge-done { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-  .badge-cancelled { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  /* Header: solid, no blur */
+  header {
+    background: var(--ink) !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    border-bottom: 0 !important;
+  }
+  header [class*="bg-gradient"] { background: var(--accent) !important; box-shadow: none !important; border-radius: 6px !important; }
+  header h1 { font-weight: 600; letter-spacing: 0; }
+  header [class*="text-red-400"] { color: #aac4e6 !important; }
+
+  #userBadge { background: rgba(255,255,255,.12) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.25) !important; border-radius: 4px !important; }
+  button[onclick^="openQuickRemarksModal"] { background: #f1f4f7 !important; color: var(--muted) !important; border: 1px solid var(--rule); }
+  button[onclick^="openQuickRemarksModal"]:hover { background: #e6ebf0 !important; color: var(--ink) !important; }
+
+  /* Login */
+  #authSection { background: var(--canvas) !important; backdrop-filter: none !important; }
+  #authSection [class*="bg-gradient"] { background: var(--accent) !important; box-shadow: none !important; border-radius: 8px !important; }
+
+  /* Tabs + notice on the light canvas */
+  main [class*="bg-slate-800/"] {
+    background: var(--panel) !important;
+    border: 1px solid var(--rule) !important;
+    color: var(--muted) !important;
+    backdrop-filter: none !important;
+  }
+  #rrsTab, #rsTab { border-radius: 5px !important; box-shadow: none !important; }
+  #rrsTab:not([class*="bg-slate-900"]), #rsTab:not([class*="bg-slate-900"]) { color: var(--muted) !important; }
+  #rrsTab:not([class*="bg-slate-900"]):hover, #rsTab:not([class*="bg-slate-900"]):hover { color: var(--ink) !important; background: #f1f4f7 !important; }
+  #rrsTab[class*="bg-slate-900"], #rsTab[class*="bg-slate-900"] { background: var(--ink) !important; color: #fff !important; }
+  #rrsTab i, #rsTab i { color: inherit !important; }
+
+  /* Summary cards: numbers only, no icon tiles */
+  .grid.grid-cols-2 > .glass-card .w-10.h-10 { display: none !important; }
+  .grid.grid-cols-2 > .glass-card { border-left-width: 3px !important; }
+  .grid.grid-cols-2 > .glass-card p { text-transform: none !important; letter-spacing: 0 !important; font-size: 13px; font-weight: 500; color: var(--muted) !important; }
+  .grid.grid-cols-2 > .glass-card h3 { font-size: 1.75rem; font-weight: 600; }
+
+  /* One accent for primary actions */
+  [class*="bg-red-600"], [class*="bg-blue-600"] { background: var(--accent) !important; color: #fff !important; }
+  [class*="bg-red-600"]:hover, [class*="bg-blue-600"]:hover { background: var(--accent-dark) !important; }
+  button[onclick^="exportToExcel"], button[onclick^="printSection"] {
+    background: var(--panel) !important; color: var(--ink) !important; border: 1px solid var(--rule) !important;
+  }
+  button[onclick^="exportToExcel"]:hover, button[onclick^="printSection"]:hover { background: #f1f4f7 !important; }
+  #rrsFormContainer i.fa-pen-to-square, #rsFormContainer i.fa-pen-to-square { color: var(--accent) !important; }
+
+  /* Tables */
+  thead tr { background: #f4f6f8 !important; }
+  th, .uppercase { text-transform: none !important; letter-spacing: 0 !important; }
+  th { font-size: 12px !important; font-weight: 600 !important; color: var(--muted) !important; }
+  th[class*="bg-amber-50"], td[class*="bg-amber-50"] { background: transparent !important; color: var(--muted) !important; }
+  th [class*="text-amber"], td [class*="text-amber"] { color: var(--muted) !important; }
+  #rrsTable td:first-child, #rsTable td:first-child { color: var(--ink) !important; font-weight: 600; }
+  tbody tr:hover { background: #f6f8fa !important; }
+
+  /* Status pills: small, square-ish */
+  [class*="badge-"] { border-radius: 4px !important; }
+  .badge-pending   { background-color: #fff3d6; color: #7a5200; border: 1px solid #f0d58f; }
+  .badge-ongoing   { background-color: #e3edf9; color: #1d4e89; border: 1px solid #b9d0ec; }
+  .badge-done      { background-color: #e1f1e6; color: #1e6a3b; border: 1px solid #a9d3b6; }
+  .badge-cancelled { background-color: #eceef1; color: #4a5562; border: 1px solid #ccd2d9; }
+
+  /* Footer */
+  footer { background: transparent !important; backdrop-filter: none !important; border-top: 1px solid var(--rule) !important; color: var(--muted) !important; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--canvas); }
+  ::-webkit-scrollbar-thumb { background: #b9c2cc; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #9aa6b3; }
 
   @media print {
     body { background: white !important; color: black !important; }
@@ -142,8 +209,8 @@
       <div>
         <label class="block text-xs font-semibold text-slate-700 mb-1">Requested Role</label>
         <select id="regRequestedRole" class="w-full text-xs px-3 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition bg-white">
-          <option value="user">Regular User (View Department Only)</option>
-          <option value="admin">Administrator (Full Access)</option>
+          <option value="user">Regular User (Own Department Only)</option>
+          <option value="administrator">Administrator (Encode RS / Update RRS Status & Remarks)</option>
         </select>
       </div>
 
@@ -275,7 +342,7 @@
       </div>
 
       <!-- RRS Input Form -->
-      <div id="rrsFormContainer" class="glass-card rounded-2xl shadow-md overflow-hidden no-print">
+      <div id="rrsFormContainer" style="display:none" class="glass-card rounded-2xl shadow-md overflow-hidden no-print">
         <div class="px-6 py-4 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between">
           <div class="flex items-center gap-2">
             <i class="fa-solid fa-pen-to-square text-red-600"></i>
@@ -367,7 +434,7 @@
           </div>
 
           <div class="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
-            <button type="button" onclick="resetRRS()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancel</button>
+            <button type="button" onclick="cancelRRS()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancel</button>
             <button type="submit" id="rrsSaveBtn" class="px-5 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition flex items-center gap-1.5">
               <i class="fa-solid fa-floppy-disk"></i>
               <span>Save RRS</span>
@@ -388,6 +455,9 @@
               <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
               <input id="rrsSearch" oninput="renderRRS()" placeholder="Search RRS records..." class="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-white">
             </div>
+            <button id="rrsAddBtn" type="button" onclick="toggleForm('rrs')" style="display:none" class="px-3 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-plus"></i><span>Add RRS</span>
+            </button>
             <button onclick="exportToExcel('rrs')" class="admin-only px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition flex items-center gap-1.5 shrink-0">
               <i class="fa-solid fa-file-excel"></i>
               <span>Export to Excel</span>
@@ -470,7 +540,7 @@
       </div>
 
       <!-- RS Input Form -->
-      <div id="rsFormContainer" class="glass-card rounded-2xl shadow-md overflow-hidden no-print">
+      <div id="rsFormContainer" style="display:none" class="glass-card rounded-2xl shadow-md overflow-hidden no-print">
         <div class="px-6 py-4 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between">
           <div class="flex items-center gap-2">
             <i class="fa-solid fa-pen-to-square text-blue-600"></i>
@@ -554,7 +624,7 @@
           </div>
 
           <div class="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
-            <button type="button" onclick="resetRS()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancel</button>
+            <button type="button" onclick="cancelRS()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition">Cancel</button>
             <button type="submit" id="rsSaveBtn" class="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center gap-1.5">
               <i class="fa-solid fa-floppy-disk"></i>
               <span>Save RS</span>
@@ -575,6 +645,9 @@
               <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
               <input id="rsSearch" oninput="renderRS()" placeholder="Search RS records..." class="w-full pl-9 pr-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white">
             </div>
+            <button id="rsAddBtn" type="button" onclick="toggleForm('rs')" style="display:none" class="px-3 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-plus"></i><span>Add RS</span>
+            </button>
             <button onclick="exportToExcel('rs')" class="admin-only px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition flex items-center gap-1.5 shrink-0">
               <i class="fa-solid fa-file-excel"></i>
               <span>Export to Excel</span>
@@ -856,6 +929,41 @@ let justLoggedIn = false;
 
 const byNewest = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
 
+// ---- Role helpers ----
+// "admin"         = HEAD ADMIN   (full access to everything)
+// "administrator" = ADMINISTRATOR (adds/encodes RS; in RRS can only update Status + Remarks)
+// "user"          = REGULAR USER (own department only)
+const isHead = () => currentUser?.role === "admin";
+const isAdministrator = () => currentUser?.role === "administrator";
+const isDeptScoped = () => !!currentUser && !isHead() && !isAdministrator();
+const canAddRRS = () => isHead() || currentUser?.role === "user";
+const canAddRS = () => !!currentUser;
+const canQuickUpdate = (type) => isHead() || (isAdministrator() && type === "rrs");
+const roleLabel = (r) => r === "admin" ? "HEAD ADMIN" : r === "administrator" ? "ADMINISTRATOR" : "USER";
+
+// Show/hide the Add RRS / Add RS form
+function setFormVisible(type, show) {
+  const box = document.getElementById(type === "rrs" ? "rrsFormContainer" : "rsFormContainer");
+  const btn = document.getElementById(type === "rrs" ? "rrsAddBtn" : "rsAddBtn");
+  const allowed = type === "rrs" ? canAddRRS() : canAddRS();
+  box.style.display = (show && allowed) ? "block" : "none";
+  if (btn) {
+    const open = show && allowed;
+    btn.innerHTML = open
+      ? `<i class="fa-solid fa-xmark"></i><span>Close Form</span>`
+      : `<i class="fa-solid fa-plus"></i><span>Add ${type.toUpperCase()}</span>`;
+  }
+}
+function toggleForm(type) {
+  const box = document.getElementById(type === "rrs" ? "rrsFormContainer" : "rsFormContainer");
+  const opening = box.style.display === "none" || box.style.display === "";
+  if (opening) { type === "rrs" ? resetRRS() : resetRS(); }
+  setFormVisible(type, opening);
+  if (opening) box.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function cancelRRS() { resetRRS(); setFormVisible("rrs", false); }
+function cancelRS()  { resetRS();  setFormVisible("rs", false); }
+
 async function run(fn) {
   try { await fn(); }
   catch (err) {
@@ -940,7 +1048,7 @@ async function handleAuthChange(user) {
   if (justLoggedIn) {
     justLoggedIn = false;
     logActivity("Logged in & viewed dashboard");
-    showToast(`Welcome ${currentUser.fullName || currentUser.username}! Logged in as ${currentUser.role.toUpperCase()}.`);
+    showToast(`Welcome ${currentUser.fullName || currentUser.username}! Logged in as ${roleLabel(currentUser.role)}.`);
   }
 
   if (currentUser.role === "admin") offerLocalMigration();
@@ -972,8 +1080,9 @@ function onListenError(err) {
 function startListeners() {
   stopListeners();
   const isAdmin = currentUser.role === "admin";
+  const seesAll = isAdmin || currentUser.role === "administrator";
   const dept = currentUser.department || "";
-  const scoped = (name) => isAdmin
+  const scoped = (name) => seesAll
     ? fb.collection(fb.db, name)
     : fb.query(fb.collection(fb.db, name), fb.where("department", "==", dept));
 
@@ -1143,15 +1252,20 @@ function initializeSystem() {
   document.getElementById("activeUserDeptDisplay").textContent = currentUser.department ? `(${currentUser.department})` : '';
   
   const badge = document.getElementById("userBadge");
-  badge.textContent = currentUser.role.toUpperCase();
+  badge.textContent = roleLabel(currentUser.role);
 
-  // Parehong Admin at Regular User ay may access na mag-create ng RRS & RS
-  document.getElementById("rrsFormContainer").style.display = "block";
-  document.getElementById("rsFormContainer").style.display = "block";
+  // Forms are hidden by default; shown only when the "Add" button is clicked
+  setFormVisible("rrs", false);
+  setFormVisible("rs", false);
+  document.getElementById("rrsAddBtn").style.display = canAddRRS() ? "" : "none";
+  document.getElementById("rsAddBtn").style.display = canAddRS() ? "" : "none";
 
   if (currentUser.role === 'admin') {
     badge.className = "text-xs font-semibold uppercase px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30";
     checkPendingApprovals();
+  } else if (currentUser.role === 'administrator') {
+    badge.className = "text-xs font-semibold uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30";
+    document.getElementById("pendingBadge").classList.add("hidden");
   } else {
     badge.className = "text-xs font-semibold uppercase px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30";
     document.getElementById("pendingBadge").classList.add("hidden");
@@ -1181,7 +1295,7 @@ function checkPendingApprovals() {
 
 // Quick Remarks Modal Handlers for Record Table Update
 function openQuickRemarksModal(type, index) {
-  if (currentUser?.role !== 'admin') return;
+  if (!canQuickUpdate(type)) return;
   const record = (type === 'rrs') ? rrsRecords[index] : rsRecords[index];
   
   document.getElementById("qrType").value = type;
@@ -1216,6 +1330,7 @@ function toggleQrRemarksReq() {}
 function saveQuickRemarks(e) {
   e.preventDefault();
   const type = document.getElementById("qrType").value;
+  if (!canQuickUpdate(type)) return;
   const newStatus = document.getElementById("qrStatus").value;
   const newRemarks = document.getElementById("qrRemarksInput").value.trim();
   const col = (type === 'rrs') ? "rrs" : "rs";
@@ -1302,7 +1417,8 @@ function renderPendingUsers() {
           <span class="text-[10px] text-slate-500">Requested:</span>
           <select onchange="updateUserRequestedRole(${userIndex}, this.value)" class="text-[10px] font-semibold border rounded px-1 py-0.5 bg-white text-slate-700">
             <option value="user" ${u.role === 'user' ? 'selected' : ''}>USER ONLY</option>
-            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>ADMIN</option>
+            <option value="administrator" ${u.role === 'administrator' ? 'selected' : ''}>ADMINISTRATOR</option>
+            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>HEAD ADMIN</option>
           </select>
         </div>
       </div>
@@ -1336,7 +1452,7 @@ function renderAllUsersList() {
     tr.innerHTML = `
       <td class="p-2 font-medium">${e(u.fullName || u.username)} <span class="text-slate-400">(@${e(u.username)})</span> ${isSelf ? '<span class="text-[9px] bg-slate-200 text-slate-700 px-1 rounded">You</span>' : ''}</td>
       <td class="p-2 text-[10px] text-slate-600 font-medium">${e(u.department || 'N/A')}</td>
-      <td class="p-2 uppercase text-[10px] font-bold">${e(u.role)}</td>
+      <td class="p-2 uppercase text-[10px] font-bold">${e(roleLabel(u.role))}</td>
       <td class="p-2"><span class="px-1.5 py-0.5 rounded font-bold text-[10px] ${statusClass}">${e(u.status)}</span></td>
       <td class="p-2 text-center">${deleteBtn}</td>
     `;
@@ -1372,7 +1488,7 @@ function updateUserRequestedRole(index, newRole) {
   const u = users[index];
   run(async () => {
     await fb.updateDoc(fb.doc(fb.db, "users", u.uid), { role: newRole });
-    showToast(`Updated assigned role for ${u.username} to ${newRole.toUpperCase()}`);
+    showToast(`Updated assigned role for ${u.username} to ${roleLabel(newRole)}`);
   });
 }
 
@@ -1380,7 +1496,7 @@ function approveUser(index) {
   const u = users[index];
   run(async () => {
     await fb.updateDoc(fb.doc(fb.db, "users", u.uid), { status: "APPROVED" });
-    showToast(`Account for '${u.username}' has been APPROVED as ${u.role.toUpperCase()}.`);
+    showToast(`Account for '${u.username}' has been APPROVED as ${roleLabel(u.role)}.`);
   });
 }
 
@@ -1518,8 +1634,8 @@ function statusBadgeHTML(status, remarks = "", type = "", index = -1) {
       <i class="fa-solid ${icon}"></i>${e(status)}
     </span>`;
 
-  if (currentUser?.role === 'admin' && type && index >= 0) {
-    html += `<button onclick="openQuickRemarksModal('${type}', ${index})" class="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded font-semibold transition admin-only" title="Update Status / Remarks"><i class="fa-solid fa-pen"></i> Quick Remarks</button>`;
+  if (canQuickUpdate(type) && type && index >= 0) {
+    html += `<button onclick="openQuickRemarksModal('${type}', ${index})" class="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded font-semibold transition" title="Update Status / Remarks"><i class="fa-solid fa-pen"></i> Quick Remarks</button>`;
   }
 
   html += `</div>`;
@@ -1563,11 +1679,12 @@ document.getElementById("rrsForm").addEventListener("submit", async function (ev
   const currentTimestamp = getCurrentTimestamp();
 
   let deptVal = document.getElementById("rrsDepartment").value;
-  if (currentUser && currentUser.role !== 'admin') {
+  if (isDeptScoped()) {
     deptVal = currentUser.department;
   }
 
   const existing = editingRRS >= 0 ? rrsRecords.find(r => r.id === editingRRSId) : null;
+  if (existing ? !isHead() : !canAddRRS()) { showToast("You are not allowed to do this.", true); return; }
   const data = {
     rrsNumber: num,
     department: deptVal,
@@ -1602,6 +1719,7 @@ document.getElementById("rrsForm").addEventListener("submit", async function (ev
       showToast(`New RRS '${num}' saved.`);
     }
     resetRRS();
+    setFormVisible("rrs", false);
   } catch (err) {
     console.error(err);
     if (!existing && err.code === "permission-denied") showToast("RRS Number already exists!", true);
@@ -1617,7 +1735,7 @@ function resetRRS() {
   setDefaultDate("rrsDateReported");
 
   const deptSelect = document.getElementById("rrsDepartment");
-  if (currentUser && currentUser.role !== 'admin' && currentUser.department) {
+  if (isDeptScoped() && currentUser.department) {
     deptSelect.value = currentUser.department;
     deptSelect.disabled = true;
   } else {
@@ -1631,7 +1749,7 @@ function renderRRS() {
   
   // Filter by department if user is non-admin
   let baseList = rrsRecords;
-  if (currentUser && currentUser.role !== 'admin' && currentUser.department) {
+  if (isDeptScoped() && currentUser.department) {
     baseList = rrsRecords.filter(r => (r.department || '').toLowerCase() === currentUser.department.toLowerCase());
   }
 
@@ -1661,7 +1779,7 @@ function renderRRS() {
       <td class="p-3 font-bold text-red-600 font-mono">${e(r.rrsNumber)}</td>
       <td class="p-3">${e(r.department) || '-'}</td>
       <td class="p-3 max-w-xs truncate" title="${e(r.scope)}">${e(r.scope) || '-'}</td>
-      <td class="p-3">${r.quantity ? `${e(r.quantity)}${e(r.unit)}` : '-'}</td>
+      <td class="p-3">${r.quantity ? `${e(r.quantity)} ${e(r.unit)}` : '-'}</td>
       <td class="p-3">${e(r.checkBy) || '-'}</td>
       <td class="p-3 text-slate-500 whitespace-nowrap">${e(r.dateReported) || '-'}</td>
       <td class="p-3 whitespace-nowrap">${statusBadgeHTML(r.status, r.remarks, 'rrs', realIndex)}</td>
@@ -1693,6 +1811,7 @@ function editRRS(index) {
   editingRRSId = r.id;
   document.getElementById("rrsFormTitle").textContent = "Edit RRS Record";
   document.getElementById("rrsSaveBtn").innerHTML = '<i class="fa-solid fa-pen"></i><span>Update RRS</span>';
+  setFormVisible("rrs", true);
   switchTab("rrs");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1706,11 +1825,12 @@ document.getElementById("rsForm").addEventListener("submit", async function (evt
   const currentTimestamp = getCurrentTimestamp();
 
   let deptVal = document.getElementById("rsDepartment").value;
-  if (currentUser && currentUser.role !== 'admin') {
+  if (isDeptScoped()) {
     deptVal = currentUser.department;
   }
 
   const existing = editingRS >= 0 ? rsRecords.find(r => r.id === editingRSId) : null;
+  if (existing ? !isHead() : !canAddRS()) { showToast("You are not allowed to do this.", true); return; }
   const data = {
     rsNumber: num,
     department: deptVal,
@@ -1745,6 +1865,7 @@ document.getElementById("rsForm").addEventListener("submit", async function (evt
       showToast(`New RS '${num}' saved.`);
     }
     resetRS();
+    setFormVisible("rs", false);
   } catch (err) {
     console.error(err);
     if (!existing && err.code === "permission-denied") showToast("RS Number already exists!", true);
@@ -1760,7 +1881,7 @@ function resetRS() {
   setDefaultDate("rsDateReported");
 
   const deptSelect = document.getElementById("rsDepartment");
-  if (currentUser && currentUser.role !== 'admin' && currentUser.department) {
+  if (isDeptScoped() && currentUser.department) {
     deptSelect.value = currentUser.department;
     deptSelect.disabled = true;
   } else {
@@ -1774,7 +1895,7 @@ function renderRS() {
 
   // Filter by department if user is non-admin
   let baseList = rsRecords;
-  if (currentUser && currentUser.role !== 'admin' && currentUser.department) {
+  if (isDeptScoped() && currentUser.department) {
     baseList = rsRecords.filter(r => (r.department || '').toLowerCase() === currentUser.department.toLowerCase());
   }
 
@@ -1837,6 +1958,7 @@ function editRS(index) {
   editingRSId = r.id;
   document.getElementById("rsFormTitle").textContent = "Edit RS Record";
   document.getElementById("rsSaveBtn").innerHTML = '<i class="fa-solid fa-pen"></i><span>Update RS</span>';
+  setFormVisible("rs", true);
   switchTab("rs");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1916,7 +2038,7 @@ function updateDashboards() {
   let activeRs = rsRecords;
 
   // Compute dashboard metrics per user department if regular user
-  if (currentUser && currentUser.role !== 'admin' && currentUser.department) {
+  if (isDeptScoped() && currentUser.department) {
     activeRrs = rrsRecords.filter(r => (r.department || '').toLowerCase() === currentUser.department.toLowerCase());
     activeRs = rsRecords.filter(r => (r.department || '').toLowerCase() === currentUser.department.toLowerCase());
   }
