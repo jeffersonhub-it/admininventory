@@ -1,135 +1,245 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fil">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RRS & RS Monitoring System</title>
-<!-- Tailwind CSS -->
+<title>AdminInventory · RRS & RS Monitoring</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<!-- Font Awesome icons -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<!-- IBM Plex Sans -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-<!-- SheetJS library for exporting to Excel -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
 <style>
   :root {
-    --canvas: #eef1f4;
-    --panel: #ffffff;
-    --ink: #1c2733;
-    --muted: #5d6a79;
-    --rule: #d5dbe2;
-    --accent: #1d4e89;
-    --accent-dark: #163d6d;
+    --bg: #ffffff;
+    --card: #f5f6f8;
+    --card-line: #eceef2;
+    --ink: #0a0a0c;
+    --ink-2: #3a3d45;
+    --muted: #8b909b;
+    --blue: #14a8d9;
+    --blue-dark: #0e86b0;
+    --blue-soft: #e3f5fb;
+    --teal: #2b6e84;
+    --amber: #f2a900;
+    --radius: 22px;
+    --side-w: 232px;
   }
-
+  .hidden { display: none !important; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
-    font-family: 'IBM Plex Sans', system-ui, sans-serif;
-    background: var(--canvas) !important;
-    background-image: none !important;
+    font-family: 'Poppins', system-ui, sans-serif !important;
+    background: var(--bg) !important;
     color: var(--ink);
-    font-variant-numeric: tabular-nums;
+    font-size: 14px;
   }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
-  /* Panels: flat, ruled, no glass */
-  .glass-card {
-    background: var(--panel) !important;
-    backdrop-filter: none !important;
-    border: 1px solid var(--rule) !important;
-    box-shadow: none !important;
+  /* ---------- App shell ---------- */
+  #mainApp { min-height: 100vh; }
+  #mainApp.flex { display: flex; flex-direction: row; }
+  .sidebar {
+    width: var(--side-w); flex: none; position: sticky; top: 0; height: 100vh;
+    display: flex; flex-direction: column; padding: 26px 18px 22px;
+    border-right: 1px solid var(--card-line); background: var(--bg); z-index: 40;
   }
-  .rounded-2xl { border-radius: 8px !important; }
-  .rounded-xl  { border-radius: 6px !important; }
-  .rounded-lg  { border-radius: 5px !important; }
-  .shadow-md, .shadow-sm, .shadow-lg, .shadow-2xl { box-shadow: none !important; }
-  #settingsCard, #modalCard, #quickRemarksCard { box-shadow: 0 8px 24px rgba(28,39,51,.18) !important; }
-
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-
-  /* Header: solid, no blur */
-  header {
-    background: var(--ink) !important;
-    backdrop-filter: none !important;
-    box-shadow: none !important;
-    border-bottom: 0 !important;
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 26px; }
+  .brand svg { flex: none; }
+  .brand-name { font-weight: 700; font-size: 19px; letter-spacing: -.02em; line-height: 1; }
+  .brand-name small { display: block; font-weight: 500; font-size: 10.5px; letter-spacing: 0; color: var(--muted); margin-top: 4px; }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav-sep { height: 1px; background: var(--card-line); margin: 14px 8px; }
+  .nav-item {
+    position: relative; display: flex; align-items: center; gap: 12px; width: 100%;
+    padding: 11px 12px; border: 0; background: none; border-radius: 12px; cursor: pointer;
+    font: inherit; font-size: 13px; font-weight: 500; color: var(--muted); text-align: left;
+    transition: background .15s, color .15s;
   }
-  header [class*="bg-gradient"] { background: var(--accent) !important; box-shadow: none !important; border-radius: 6px !important; }
-  header h1 { font-weight: 600; letter-spacing: 0; }
-  header [class*="text-red-400"] { color: #aac4e6 !important; }
+  .nav-item i { width: 18px; text-align: center; font-size: 14px; }
+  .nav-item:hover { background: var(--card); color: var(--ink); }
+  .nav-item.active { color: var(--ink); font-weight: 600; background: var(--card); }
+  .nav-item.active::before { content: ""; position: absolute; left: -18px; top: 9px; bottom: 9px; width: 4px; border-radius: 0 4px 4px 0; background: var(--blue); }
+  .nav-item.active i { color: var(--blue); }
+  .nav-dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+  .side-foot { margin-top: auto; }
 
-  #userBadge { background: rgba(255,255,255,.12) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.25) !important; border-radius: 4px !important; }
-  button[onclick^="openQuickRemarksModal"] { background: #f1f4f7 !important; color: var(--muted) !important; border: 1px solid var(--rule); }
-  button[onclick^="openQuickRemarksModal"]:hover { background: #e6ebf0 !important; color: var(--ink) !important; }
-
-  /* Login */
-  #authSection { background: var(--canvas) !important; backdrop-filter: none !important; }
-  #authSection [class*="bg-gradient"] { background: var(--accent) !important; box-shadow: none !important; border-radius: 8px !important; }
-
-  /* Tabs + notice on the light canvas */
-  main [class*="bg-slate-800/"] {
-    background: var(--panel) !important;
-    border: 1px solid var(--rule) !important;
-    color: var(--muted) !important;
-    backdrop-filter: none !important;
+  .content { flex: 1; min-width: 0; max-width: 100%; padding: 22px 28px 40px; }
+  .topbar { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+  .topbar h1 { font-size: 19px; font-weight: 600; line-height: 1.15; letter-spacing: -.01em; }
+  .topbar .sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .menu-btn { display: none; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--card-line); background: var(--card); cursor: pointer; }
+  .searchbox {
+    margin-left: auto; display: flex; align-items: center; width: min(340px, 38vw);
+    background: var(--bg); border: 1px solid var(--card-line); border-radius: 999px; padding: 4px 4px 4px 18px;
   }
-  #rrsTab, #rsTab { border-radius: 5px !important; box-shadow: none !important; }
-  #rrsTab:not([class*="bg-slate-900"]), #rsTab:not([class*="bg-slate-900"]) { color: var(--muted) !important; }
-  #rrsTab:not([class*="bg-slate-900"]):hover, #rsTab:not([class*="bg-slate-900"]):hover { color: var(--ink) !important; background: #f1f4f7 !important; }
-  #rrsTab[class*="bg-slate-900"], #rsTab[class*="bg-slate-900"] { background: var(--ink) !important; color: #fff !important; }
-  #rrsTab i, #rsTab i { color: inherit !important; }
+  .searchbox input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 12.5px; padding: 6px 0; }
+  .searchbox input::placeholder { color: var(--muted); }
+  .searchbox:focus-within { border-color: var(--blue); }
+  .search-go { width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--ink); color: #fff; cursor: pointer; font-size: 12px; transition: background .15s; }
+  .search-go:hover { background: var(--blue); }
+  .bell { position: relative; width: 40px; height: 40px; border-radius: 50%; border: 0; background: none; cursor: pointer; color: #e5484d; font-size: 17px; }
+  .bell:hover { background: var(--card); }
+  #pendingBadge { position: absolute; top: 8px; right: 9px; width: 9px; height: 9px; border-radius: 50%; background: var(--ink); border: 2px solid #fff; }
+  .profile { display: flex; align-items: center; gap: 11px; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 14px; flex: none; }
+  .profile-name { font-size: 13px; font-weight: 600; line-height: 1.2; }
+  #activeUserDisplay { font-size: 13px; font-weight: 600; }
+  #userBadge { display: block; background: none !important; border: 0 !important; padding: 0 !important; color: var(--muted) !important; font-size: 11px !important; font-weight: 500 !important; }
+  #activeUserDeptDisplay { font-size: 10px; color: var(--muted); }
 
-  /* Summary cards: numbers only, no icon tiles */
-  .grid.grid-cols-2 > .glass-card .w-10.h-10 { display: none !important; }
-  .grid.grid-cols-2 > .glass-card { border-left-width: 3px !important; }
-  .grid.grid-cols-2 > .glass-card p { text-transform: none !important; letter-spacing: 0 !important; font-size: 13px; font-weight: 500; color: var(--muted) !important; }
-  .grid.grid-cols-2 > .glass-card h3 { font-size: 1.75rem; font-weight: 600; }
-
-  /* One accent for primary actions */
-  [class*="bg-red-600"], [class*="bg-blue-600"] { background: var(--accent) !important; color: #fff !important; }
-  [class*="bg-red-600"]:hover, [class*="bg-blue-600"]:hover { background: var(--accent-dark) !important; }
-  button[onclick^="exportToExcel"], button[onclick^="printSection"] {
-    background: var(--panel) !important; color: var(--ink) !important; border: 1px solid var(--rule) !important;
+  /* ---------- Cards ---------- */
+  .card, .glass-card {
+    background: var(--card) !important; border: 1px solid var(--card-line) !important;
+    border-radius: var(--radius) !important; box-shadow: none !important; backdrop-filter: none !important;
   }
-  button[onclick^="exportToExcel"]:hover, button[onclick^="printSection"]:hover { background: #f1f4f7 !important; }
-  #rrsFormContainer i.fa-pen-to-square, #rsFormContainer i.fa-pen-to-square { color: var(--accent) !important; }
+  .card { padding: 22px; }
+  .card-title { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .link-soft { font-size: 11.5px; color: var(--muted); background: none; border: 0; cursor: pointer; font-family: inherit; }
+  .link-soft:hover { color: var(--blue-dark); }
 
-  /* Tables */
-  thead tr { background: #f4f6f8 !important; }
-  th, .uppercase { text-transform: none !important; letter-spacing: 0 !important; }
-  th { font-size: 12px !important; font-weight: 600 !important; color: var(--muted) !important; }
+  .dash-top { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+  .dash-mid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .stat {
+    position: relative; min-height: 118px; border-radius: var(--radius); padding: 18px 20px;
+    background: var(--card); border: 1px solid var(--card-line); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
+  }
+  .stat.dark { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .stat-num { font-size: 34px; font-weight: 600; letter-spacing: -.03em; line-height: 1; }
+  .stat-num small { font-size: 12px; font-weight: 500; letter-spacing: 0; margin-left: 6px; color: var(--muted); }
+  .stat.dark .stat-num small { color: #b9bdc6; }
+  .stat-label { font-size: 12.5px; color: var(--ink-2); font-weight: 500; }
+  .stat.dark .stat-label { color: #fff; }
+  .stat-link { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--card-line); background: #fff; color: var(--ink); display: grid; place-items: center; cursor: pointer; font-size: 11px; transition: background .15s, color .15s; }
+  .stat.dark .stat-link { background: transparent; border-color: #3a3d45; color: #fff; }
+  .stat-link:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .stat::after { content: ""; position: absolute; right: -18px; bottom: -18px; width: 70px; height: 70px; background: var(--dot, transparent); border-radius: 18px; opacity: .14; }
+  .stat.s-pending { --dot: var(--amber); } .stat.s-ongoing { --dot: var(--blue); } .stat.s-done { --dot: var(--ink); }
+
+  .act-row { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) auto; align-items: center; gap: 14px; padding: 13px 0; border-top: 1px solid var(--card-line); font-size: 12px; }
+  .act-row:first-of-type { border-top: 0; }
+  .act-title { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .act-code { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .act-desc { color: var(--ink-2); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .act-who { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 12px; }
+  .act-who .avatar { width: 32px; height: 32px; font-size: 11px; background: var(--ink); }
+  .act-who .avatar.rs { background: var(--blue); }
+  .chip { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fff; border: 1px solid var(--card-line); color: var(--ink-2); }
+
+  /* Bar chart */
+  .select-pill { appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b909b' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 12px center; border: 1px solid var(--card-line); border-radius: 999px; font: inherit; font-size: 11.5px; padding: 7px 30px 7px 14px; cursor: pointer; color: var(--ink); }
+  .bars { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; height: 214px; padding-top: 34px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: pointer; position: relative; }
+  .bar { width: min(100%, 64px); border-radius: 18px; background: var(--ink); transition: height .35s ease, background .15s; }
+  .bar-col.on .bar { background: var(--blue); }
+  .bar-tip { position: absolute; transform: translateY(-100%); margin-top: -8px; background: var(--blue); color: #fff; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 8px; opacity: 0; transition: opacity .15s; pointer-events: none; }
+  .bar-tip::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 8px; height: 8px; background: var(--blue); transform: translateX(-50%) rotate(45deg); }
+  .bar-col.on .bar-tip { opacity: 1; }
+  .bar-lbl { font-size: 11px; color: var(--muted); margin-top: 10px; }
+  .bar-col.on .bar-lbl { color: var(--ink); font-weight: 600; }
+  .bar-wrap { position: relative; }
+  .empty { color: var(--muted); font-size: 12px; text-align: center; padding: 28px 0; }
+
+  /* Donut */
+  .donut-wrap { display: flex; align-items: center; justify-content: center; gap: 22px; flex-wrap: wrap; padding-top: 4px; }
+  .donut { position: relative; width: 168px; height: 168px; }
+  .donut svg { transform: rotate(-90deg); }
+  .donut-c { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+  .donut-c b { font-size: 26px; font-weight: 600; letter-spacing: -.03em; line-height: 1; }
+  .donut-c span { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .legend { display: flex; flex-direction: column; gap: 10px; font-size: 12px; }
+  .legend div { display: flex; align-items: center; gap: 8px; }
+  .legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .legend b { margin-left: auto; padding-left: 14px; font-weight: 600; }
+
+  /* Dashboard table + record tables */
+  .tbl-card { padding: 20px 8px 8px; }
+  .tbl-card .card-head { padding: 0 14px; }
+  .tbl-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  .dtable th, #rrsSection th, #rsSection th { text-align: left; font-size: 12px !important; font-weight: 500 !important; color: var(--muted) !important; text-transform: none !important; letter-spacing: 0 !important; padding: 12px 14px !important; white-space: nowrap; background: transparent !important; border-bottom: 1px solid var(--card-line) !important; }
+  .dtable td, #rrsSection td, #rsSection td { padding: 14px !important; font-size: 12.5px; border-top: 1px solid var(--card-line); }
+  #rrsSection tbody, #rsSection tbody { --tw-divide-y-reverse: 0; }
+  #rrsSection tbody tr, #rsSection tbody tr { border-top: 0 !important; }
+  .dtable tbody tr:hover, #rrsSection tbody tr:hover, #rsSection tbody tr:hover { background: #fff !important; }
+  .code { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  #rrsTable td:first-child, #rsTable td:first-child { color: var(--ink) !important; font-weight: 600 !important; font-family: inherit !important; }
+  .dots-btn { width: 30px; height: 30px; border: 0; border-radius: 8px; background: none; cursor: pointer; color: var(--muted); }
+  .dots-btn:hover { background: #fff; color: var(--ink); }
+
+  /* Status pills, same colours as the donut */
+  [class*="badge-"] { background: #fff !important; border: 1px solid var(--card-line) !important; color: var(--ink) !important; border-radius: 999px !important; font-weight: 600 !important; }
+  [class*="badge-"] { display: inline-flex !important; align-items: center; gap: 6px; padding: 4px 11px !important; font-size: 10px; white-space: nowrap; }
+  .badge-pending i { color: var(--amber); } .badge-ongoing i { color: var(--blue); } .badge-done i { color: var(--ink); } .badge-cancelled i { color: #a4a9b3; }
+  td [class*="text-amber-800"] { color: var(--ink-2) !important; }
   th[class*="bg-amber-50"], td[class*="bg-amber-50"] { background: transparent !important; color: var(--muted) !important; }
   th [class*="text-amber"], td [class*="text-amber"] { color: var(--muted) !important; }
-  #rrsTable td:first-child, #rsTable td:first-child { color: var(--ink) !important; font-weight: 600; }
-  tbody tr:hover { background: #f6f8fa !important; }
+  button[onclick^="openQuickRemarksModal"] { background: #fff !important; color: var(--ink-2) !important; border: 1px solid var(--card-line); border-radius: 999px !important; }
+  button[onclick^="openQuickRemarksModal"]:hover { border-color: var(--blue); color: var(--blue-dark) !important; }
 
-  /* Status pills: small, square-ish */
-  [class*="badge-"] { border-radius: 4px !important; }
-  .badge-pending   { background-color: #fff3d6; color: #7a5200; border: 1px solid #f0d58f; }
-  .badge-ongoing   { background-color: #e3edf9; color: #1d4e89; border: 1px solid #b9d0ec; }
-  .badge-done      { background-color: #e1f1e6; color: #1e6a3b; border: 1px solid #a9d3b6; }
-  .badge-cancelled { background-color: #eceef1; color: #4a5562; border: 1px solid #ccd2d9; }
+  /* Record views: sub stat cards + forms + buttons */
+  #rrsSection:not(.hidden), #rsSection:not(.hidden), #reportsSection:not(.hidden) { display: flex; flex-direction: column; gap: 16px; }
+  #rrsSection > .grid > .glass-card, #rsSection > .grid > .glass-card { padding: 16px 18px !important; border-left-width: 1px !important; }
+  .glass-card .w-10.h-10 { display: none !important; }
+  .glass-card p.text-xs.font-medium.uppercase { text-transform: none !important; letter-spacing: 0 !important; font-size: 12px; color: var(--muted) !important; }
+  .glass-card h3.text-2xl { font-size: 26px; font-weight: 600; letter-spacing: -.02em; color: var(--ink) !important; }
+  #rrsFormContainer > div:first-child, #rsFormContainer > div:first-child { background: transparent !important; border-bottom: 1px solid var(--card-line) !important; }
+  #rrsFormContainer i.fa-pen-to-square, #rsFormContainer i.fa-pen-to-square { color: var(--blue) !important; }
+  input:not([type=checkbox]), select, textarea { font-family: inherit !important; border-radius: 12px !important; border-color: var(--card-line) !important; background-color: #fff; }
+  input:focus, select:focus, textarea:focus { border-color: var(--blue) !important; box-shadow: 0 0 0 3px rgba(20,168,217,.15) !important; }
+  [class*="bg-red-600"], [class*="bg-blue-600"] { background: var(--ink) !important; color: #fff !important; border-radius: 999px !important; }
+  [class*="bg-red-600"]:hover, [class*="bg-blue-600"]:hover { background: var(--blue-dark) !important; }
+  button[onclick^="exportToExcel"], button[onclick^="printSection"] { background: #fff !important; color: var(--ink) !important; border: 1px solid var(--card-line) !important; border-radius: 999px !important; }
+  button[onclick^="exportToExcel"]:hover, button[onclick^="printSection"]:hover { border-color: var(--blue) !important; color: var(--blue-dark) !important; }
+  #rrsSearch, #rsSearch { border-radius: 999px !important; }
+  .rounded-2xl { border-radius: var(--radius) !important; }
+  .shadow-md, .shadow-sm, .shadow-lg { box-shadow: none !important; }
+  #settingsCard, #modalCard, #quickRemarksCard { box-shadow: 0 20px 50px rgba(10,10,12,.2) !important; }
+  #authSection { background: #fff !important; backdrop-filter: none !important; }
+  #authSection [class*="bg-gradient"] { background: var(--ink) !important; box-shadow: none !important; }
+  #authSection > div { border: 1px solid var(--card-line); }
+  .link-card { display: flex; align-items: center; gap: 14px; text-align: left; font: inherit; cursor: pointer; width: 100%; }
+  .link-card .ic { width: 42px; height: 42px; border-radius: 14px; background: #fff; border: 1px solid var(--card-line); display: grid; place-items: center; color: var(--blue-dark); flex: none; }
+  .link-card:hover .ic { background: var(--ink); color: #fff; }
+  .link-card b { display: block; font-size: 13px; font-weight: 600; }
+  .link-card span { font-size: 11.5px; color: var(--muted); }
 
-  /* Footer */
-  footer { background: transparent !important; backdrop-filter: none !important; border-top: 1px solid var(--rule) !important; color: var(--muted) !important; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { background: #d3d7de; border-radius: 8px; }
 
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: var(--canvas); }
-  ::-webkit-scrollbar-thumb { background: #b9c2cc; border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: #9aa6b3; }
+  /* ---------- Responsive ---------- */
+  .scrim { display: none; }
+  @media (max-width: 1100px) {
+    .dash-top, .dash-mid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 900px) {
+    .sidebar { position: fixed; left: 0; top: 0; transform: translateX(-100%); transition: transform .25s; box-shadow: 0 20px 50px rgba(10,10,12,.2); }
+    .sidebar.open { transform: none; }
+    .scrim.open { display: block; position: fixed; inset: 0; background: rgba(10,10,12,.35); z-index: 35; }
+    .menu-btn { display: grid; place-items: center; }
+    .content { padding: 16px 14px 32px; }
+    .nav-item.active::before { left: -18px; }
+    .profile-meta { display: none; }
+  }
+  @media (max-width: 560px) {
+    .stat-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .act-row { grid-template-columns: 1fr auto; } .act-desc { display: none; }
+    .topbar { gap: 8px; } .searchbox { width: auto; flex: 1; min-width: 0; } .topbar .titles .sub, .bell { display: none; } .topbar h1 { font-size: 16px; }
+    .bars { gap: 6px; } .bar { border-radius: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 
   @media print {
-    body { background: white !important; color: black !important; }
-    .no-print { display: none !important; }
-    .print-only { display: block !important; }
-    .card-shadow { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
-    table { font-size: 10px !important; }
-    th, td { padding: 4px 6px !important; }
+    body { background: #fff !important; color: #000 !important; }
+    .no-print, .sidebar, .topbar, .scrim { display: none !important; }
+    .content { padding: 0; }
+    .card, .glass-card { border: 1px solid #ddd !important; background: #fff !important; }
+    table { font-size: 10px !important; } th, td { padding: 4px 6px !important; }
   }
 </style>
 </head>
-<body class="text-slate-800 antialiased min-h-screen flex flex-col">
-
+<body class="antialiased">
 <!-- LOGIN / REGISTER SECTION -->
 <div id="authSection" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
   
@@ -229,71 +339,155 @@
 </div>
 
 <!-- MAIN APP SECTION -->
-<div id="mainApp" class="hidden flex-col min-h-screen">
+<div id="mainApp" class="hidden">
 
-  <!-- Header -->
-  <header class="bg-slate-900/90 backdrop-blur-md text-white sticky top-0 z-30 shadow-lg border-b border-slate-800 no-print">
-    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-red-600 to-rose-500 flex items-center justify-center font-bold text-white shadow-lg shadow-red-500/30 text-lg">
-          <i class="fa-solid fa-boxes-stacked"></i>
-        </div>
-        <div>
-          <h1 class="text-lg sm:text-xl font-bold tracking-tight leading-tight">Monitoring System</h1>
-          <p class="text-xs text-slate-400 font-medium">RRS & RS Records & Status Tracking</p>
+  <div class="scrim no-print" id="scrim" onclick="toggleSidebar(false)"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar no-print" id="sidebar">
+    <div class="brand">
+      <svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true">
+        <rect width="38" height="38" rx="11" fill="#0a0a0c"/>
+        <path d="M19 8.5 29 14v10.5L19 30 9 24.5V14z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M9 14l10 5.5L29 14M19 19.5V30" fill="none" stroke="#14a8d9" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      </svg>
+      <div class="brand-name">AdminInventory<small>RRS &amp; RS Monitoring</small></div>
+    </div>
+
+    <nav class="nav" aria-label="Pangunahing nabigasyon">
+      <button class="nav-item active" data-view="dashboard" onclick="switchTab('dashboard')"><i class="fa-solid fa-table-cells-large"></i>Dashboard</button>
+      <button class="nav-item" data-view="rrs" onclick="switchTab('rrs')"><i class="fa-solid fa-file-lines"></i>RRS Records</button>
+      <button class="nav-item" data-view="rs" onclick="switchTab('rs')"><i class="fa-solid fa-receipt"></i>RS Records</button>
+      <button class="nav-item" data-view="reports" onclick="switchTab('reports')"><i class="fa-solid fa-chart-column"></i>Ulat (Reports)</button>
+      <div class="nav-sep"></div>
+      <button class="nav-item" onclick="openSettingsModal()"><i class="fa-solid fa-gear"></i>Settings &amp; Users<span id="navPending" class="nav-dot" style="display:none"></span></button>
+    </nav>
+
+    <div class="side-foot">
+      <button class="nav-item" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i>Logout</button>
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <div class="content">
+    <header class="topbar no-print">
+      <button class="menu-btn" onclick="toggleSidebar(true)" aria-label="Buksan ang menu"><i class="fa-solid fa-bars"></i></button>
+      <div class="titles">
+        <h1 id="pageTitle">Dashboard</h1>
+        <div class="sub" id="currentDate">--</div>
+      </div>
+
+      <form class="searchbox" role="search" onsubmit="event.preventDefault(); globalSearch(document.getElementById('topSearch').value)">
+        <input id="topSearch" type="search" placeholder="Maghanap ng RRS / RS, item, department..." oninput="globalSearch(this.value)" autocomplete="off">
+        <button class="search-go" type="submit" aria-label="Maghanap"><i class="fa-solid fa-magnifying-glass"></i></button>
+      </form>
+
+      <button class="bell" onclick="openSettingsModal()" title="Mga naghihintay na approval / Settings" aria-label="Notifications">
+        <i class="fa-regular fa-bell"></i><span id="pendingBadge" class="hidden"></span>
+      </button>
+
+      <div class="profile">
+        <div class="avatar" id="avatarInitial">A</div>
+        <div class="profile-meta">
+          <div id="activeUserDisplay" class="profile-name">admin</div>
+          <span id="userBadge">Admin</span>
+          <span id="activeUserDeptDisplay"></span>
         </div>
       </div>
-      
-      <div class="flex items-center gap-3">
-        <div class="hidden md:flex items-center text-xs font-medium bg-slate-800/80 px-3.5 py-1.5 rounded-lg border border-slate-700/60 text-slate-300">
-          <i class="fa-regular fa-calendar-days mr-2 text-red-400"></i>
-          <span id="currentDate">--</span>
-        </div>
+    </header>
 
-        <!-- Account Info & Actions -->
-        <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-          <span id="userBadge" class="text-xs font-semibold uppercase px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">Admin</span>
-          <div class="flex flex-col text-left">
-            <span id="activeUserDisplay" class="text-xs font-medium text-slate-200">admin</span>
-            <span id="activeUserDeptDisplay" class="text-[10px] text-slate-400"></span>
+    <main>
+      <!-- VIEW: DASHBOARD -->
+      <section id="dashboardSection">
+        <div class="dash-top">
+          <div class="stat-grid">
+            <div class="stat dark">
+              <button class="stat-link" onclick="document.getElementById('dbTableCard').scrollIntoView({behavior:'smooth'})" aria-label="Tingnan ang lahat ng records"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+              <div class="stat-num"><span id="dbTotal">0</span><small>records</small></div>
+              <div class="stat-label">Kabuuang RRS + RS</div>
+            </div>
+            <div class="stat s-pending">
+              <button class="stat-link" onclick="switchTab('rrs')" aria-label="Buksan ang RRS"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+              <div class="stat-num"><span id="dbPending">0</span><small>pending</small></div>
+              <div class="stat-label">Naghihintay ng aksyon</div>
+            </div>
+            <div class="stat s-ongoing">
+              <button class="stat-link" onclick="switchTab('rs')" aria-label="Buksan ang RS"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+              <div class="stat-num"><span id="dbOngoing">0</span><small>ongoing</small></div>
+              <div class="stat-label">Kasalukuyang ginagawa</div>
+            </div>
+            <div class="stat s-done">
+              <button class="stat-link" onclick="switchTab('reports')" aria-label="Buksan ang Ulat"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+              <div class="stat-num"><span id="dbDone">0</span><small>done</small></div>
+              <div class="stat-label">Natapos na</div>
+            </div>
           </div>
-          
-          <!-- Settings Button -->
-          <button onclick="openSettingsModal()" class="ml-2 text-slate-400 hover:text-white text-xs p-1 relative" title="Account Settings & User Management">
-            <i class="fa-solid fa-gear"></i>
-            <span id="pendingBadge" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full hidden"></span>
-          </button>
 
-          <!-- Logout Button -->
-          <button onclick="handleLogout()" class="text-slate-400 hover:text-red-400 text-xs p-1" title="Logout">
-            <i class="fa-solid fa-right-from-bracket"></i>
-          </button>
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">Pinakabagong Aktibidad</div>
+              <button class="link-soft" onclick="document.getElementById('dbTableCard').scrollIntoView({behavior:'smooth'})">Tingnan lahat</button>
+            </div>
+            <div id="dbRecent"></div>
+          </div>
         </div>
-      </div>
-    </div>
-  </header>
 
-  <!-- Main Container -->
-  <main class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+        <div class="dash-mid">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">Ulat ng Records</div>
+              <select id="dbRange" class="select-pill" onchange="dbRange=+this.value; renderBars()" aria-label="Saklaw ng buwan">
+                <option value="6">Huling 6 na Buwan</option>
+                <option value="12">Huling 12 Buwan</option>
+              </select>
+            </div>
+            <div id="dbBars" class="bar-wrap"></div>
+          </div>
 
-    <!-- Navigation Tabs & Actions -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 no-print">
-      <div class="inline-flex p-1 bg-slate-800/60 backdrop-blur rounded-xl border border-slate-700/60 w-fit">
-        <button id="rrsTab" onclick="switchTab('rrs')" class="px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 bg-slate-900 text-white shadow-md">
-          <i class="fa-solid fa-file-lines text-red-500"></i>
-          <span>RRS Records</span>
-        </button>
-        <button id="rsTab" onclick="switchTab('rs')" class="px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white">
-          <i class="fa-solid fa-receipt text-blue-500"></i>
-          <span>RS Records</span>
-        </button>
-      </div>
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">Distribusyon ng Status</div>
+              <span class="link-soft" id="dbScopeNote"></span>
+            </div>
+            <div id="dbDonut" class="donut-wrap"></div>
+          </div>
+        </div>
 
-      <div class="text-xs text-slate-300 bg-slate-800/80 border border-slate-700/80 px-3 py-2 rounded-lg shadow-sm flex items-center gap-2 backdrop-blur">
-        <i class="fa-solid fa-clock-rotate-left text-red-400"></i>
-        <span>Status updates automatically log date & timestamp</span>
-      </div>
-    </div>
+        <div class="card tbl-card" id="dbTableCard">
+          <div class="card-head">
+            <div class="card-title" id="dbTableTitle">Listahan ng mga Record</div>
+            <div class="searchbox" style="margin-left:0;width:min(280px,50vw)">
+              <input id="dbSearch" type="search" placeholder="Maghanap..." oninput="globalSearch(this.value)" autocomplete="off">
+              <button class="search-go" type="button" aria-label="Maghanap" tabindex="-1"><i class="fa-solid fa-magnifying-glass"></i></button>
+            </div>
+          </div>
+          <div class="tbl-scroll">
+            <table class="dtable">
+              <thead><tr><th>Code</th><th>Uri</th><th>Department</th><th>Item / Scope</th><th>Dami</th><th>Hiningi ni / Check by</th><th>Status</th><th></th></tr></thead>
+              <tbody id="dbTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: REPORTS -->
+      <section id="reportsSection" class="hidden">
+        <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+          <button class="card link-card admin-only" onclick="exportToExcel('rrs')"><span class="ic"><i class="fa-solid fa-file-excel"></i></span><span><b>I-export ang RRS</b><span>Excel (.xlsx) · Head Admin lamang</span></span></button>
+          <button class="card link-card admin-only" onclick="exportToExcel('rs')"><span class="ic"><i class="fa-solid fa-file-excel"></i></span><span><b>I-export ang RS</b><span>Excel (.xlsx) · Head Admin lamang</span></span></button>
+          <button class="card link-card" onclick="printView('rrs')"><span class="ic"><i class="fa-solid fa-print"></i></span><span><b>I-print ang RRS</b><span>Buksan ang talaan at i-print</span></span></button>
+          <button class="card link-card" onclick="printView('rs')"><span class="ic"><i class="fa-solid fa-print"></i></span><span><b>I-print ang RS</b><span>Buksan ang talaan at i-print</span></span></button>
+        </div>
+        <div class="card tbl-card">
+          <div class="card-head"><div class="card-title">Records bawat Department</div></div>
+          <div class="tbl-scroll">
+            <table class="dtable">
+              <thead><tr><th>Department</th><th>RRS</th><th>RS</th><th>Pending</th><th>Ongoing</th><th>Done</th><th>Cancelled</th></tr></thead>
+              <tbody id="reportDeptTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
     <!-- SECTION: RRS -->
     <section id="rrsSection" class="space-y-6">
@@ -683,13 +877,8 @@
       </div>
     </section>
 
-  </main>
-
-  <!-- Footer -->
-  <footer class="mt-auto border-t border-slate-800/80 bg-slate-950/80 backdrop-blur-md py-4 text-center text-xs text-slate-400 no-print">
-    RRS & RS Monitoring System &bull; Role-based Access Enabled
-  </footer>
-
+    </main>
+  </div>
 </div>
 
 <!-- SETTINGS & APPROVAL MODAL -->
@@ -1253,6 +1442,8 @@ function initializeSystem() {
   
   const badge = document.getElementById("userBadge");
   badge.textContent = roleLabel(currentUser.role);
+  syncProfile();
+  showView("dashboard", false);
 
   // Forms are hidden by default; shown only when the "Add" button is clicked
   setFormVisible("rrs", false);
@@ -1601,24 +1792,6 @@ function setDefaultDate(id) {
   const v = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   const elem = document.getElementById(id);
   if (elem && !elem.value) elem.value = v;
-}
-
-function switchTab(type) {
-  const isRRS = type === 'rrs';
-  document.getElementById("rrsTab").className = isRRS 
-    ? "px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 bg-slate-900 text-white shadow-md"
-    : "px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white";
-    
-  document.getElementById("rsTab").className = !isRRS 
-    ? "px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 bg-slate-900 text-white shadow-md"
-    : "px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white";
-
-  document.getElementById("rrsSection").classList.toggle("hidden", !isRRS);
-  document.getElementById("rsSection").classList.toggle("hidden", isRRS);
-
-  if (currentUser) {
-    logActivity(`Switched tab to view ${type.toUpperCase()} Records`);
-  }
 }
 
 function statusBadgeHTML(status, remarks = "", type = "", index = -1) {
@@ -2052,6 +2225,7 @@ function updateDashboards() {
   document.getElementById("rsPending").textContent = activeRs.filter(r => r.status === "PENDING").length;
   document.getElementById("rsOngoing").textContent = activeRs.filter(r => r.status === "ONGOING").length;
   document.getElementById("rsDone").textContent = activeRs.filter(r => r.status === "DONE").length;
+  if (typeof renderDashboardView === "function") renderDashboardView();
 }
 
 function exportToExcel(type) {
@@ -2105,5 +2279,213 @@ function printSection(sectionId) {
   window.print();
 }
 </script>
+
+<script>
+/* ===== AdminInventory redesign: views, dashboard widgets ===== */
+const MONTHS_FIL = ['Ene','Peb','Mar','Abr','May','Hun','Hul','Ago','Set','Okt','Nob','Dis'];
+const MONTHS_FIL_LONG = ['Enero','Pebrero','Marso','Abril','Mayo','Hunyo','Hulyo','Agosto','Setyembre','Oktubre','Nobyembre','Disyembre'];
+const DAYS_FIL = ['Linggo','Lunes','Martes','Miyerkules','Huwebes','Biyernes','Sabado'];
+const VIEW_TITLES = { dashboard: 'Dashboard', rrs: 'RRS Records', rs: 'RS Records', reports: 'Ulat (Reports)' };
+const STATUS_COLORS = { PENDING: '#f2a900', ONGOING: '#14a8d9', DONE: '#0a0a0c', CANCELLED: '#c9cdd5' };
+const STATUS_LABELS = { PENDING: 'Pending', ONGOING: 'Ongoing', DONE: 'Done', CANCELLED: 'Cancelled' };
+
+let dbRange = 6, dbQuery = '', dbHover = null, currentView = 'dashboard';
+
+function toggleSidebar(open) {
+  document.getElementById('sidebar').classList.toggle('open', open);
+  document.getElementById('scrim').classList.toggle('open', open);
+}
+
+function showView(view, log) {
+  currentView = view;
+  document.getElementById('dashboardSection').classList.toggle('hidden', view !== 'dashboard');
+  document.getElementById('rrsSection').classList.toggle('hidden', view !== 'rrs');
+  document.getElementById('rsSection').classList.toggle('hidden', view !== 'rs');
+  document.getElementById('reportsSection').classList.toggle('hidden', view !== 'reports');
+  document.querySelectorAll('.nav-item[data-view]').forEach(b => {
+    const on = b.dataset.view === view;
+    b.classList.toggle('active', on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  document.getElementById('pageTitle').textContent = VIEW_TITLES[view] || 'Dashboard';
+  toggleSidebar(false);
+  if (view === 'dashboard' || view === 'reports') renderDashboardView();
+  if (log && typeof currentUser !== 'undefined' && currentUser) {
+    logActivity(`Switched tab to view ${view.toUpperCase()}`);
+  }
+}
+// Original name kept: editRRS()/editRS() and other code still call switchTab()
+function switchTab(type) { showView(type, true); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+function printView(type) {
+  showView(type, false);
+  setTimeout(() => window.print(), 150);
+}
+
+function syncProfile() {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  const name = currentUser.fullName || currentUser.username || 'User';
+  document.getElementById('avatarInitial').textContent = name.trim().charAt(0).toUpperCase();
+  document.getElementById('activeUserDisplay').textContent = name;
+  const d = new Date();
+  document.getElementById('currentDate').textContent =
+    `${DAYS_FIL[d.getDay()]}, ${d.getDate()} ${MONTHS_FIL_LONG[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function globalSearch(q) {
+  dbQuery = (q || '').toLowerCase().trim();
+  ['topSearch', 'dbSearch'].forEach(id => { const el = document.getElementById(id); if (el && el.value !== q) el.value = q; });
+  if (currentView !== 'dashboard') showView('dashboard', false);
+  renderDbTable();
+}
+
+/* ---- data helpers (respect the same department scoping as the original code) ---- */
+function scopedLists() {
+  let a = rrsRecords, b = rsRecords;
+  if (isDeptScoped() && currentUser.department) {
+    const d = currentUser.department.toLowerCase();
+    a = a.filter(r => (r.department || '').toLowerCase() === d);
+    b = b.filter(r => (r.department || '').toLowerCase() === d);
+  }
+  return { rrs: a, rs: b };
+}
+function combined() {
+  const { rrs, rs } = scopedLists();
+  const A = rrs.map(r => ({ kind: 'RRS', code: r.rrsNumber, dept: r.department, title: r.scope || r.description || '-',
+    desc: r.description || r.complaints || '', qty: r.quantity ? `${r.quantity} ${r.unit || ''}`.trim() : '-',
+    who: r.checkBy || '-', status: r.status, remarks: r.remarks, created: r.createdAt || 0, date: r.dateReported }));
+  const B = rs.map(r => ({ kind: 'RS', code: r.rsNumber, dept: r.department, title: r.description || '-',
+    desc: r.notes || (r.section ? `Section: ${r.section}` : ''), qty: r.quantity ? String(r.quantity) : '-',
+    who: r.requestedBy || '-', status: r.status, remarks: r.remarks, created: r.createdAt || 0, date: r.dateReported }));
+  return A.concat(B).sort((x, y) => y.created - x.created);
+}
+function recDate(x) {
+  if (x.date && /^\d{4}-\d{2}-\d{2}/.test(x.date)) return new Date(x.date + 'T00:00:00');
+  return x.created ? new Date(x.created) : null;
+}
+function initials(n) {
+  const p = String(n || '?').trim().split(/\s+/);
+  return ((p[0] || '?')[0] + (p[1] ? p[1][0] : '')).toUpperCase();
+}
+function statusPill(s) {
+  const cls = { PENDING: ['badge-pending', 'fa-hourglass-start'], ONGOING: ['badge-ongoing', 'fa-spinner'], DONE: ['badge-done', 'fa-circle-check'], CANCELLED: ['badge-cancelled', 'fa-circle-xmark'] }[s] || ['badge-pending', 'fa-hourglass-start'];
+  return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] ${cls[0]}"><i class="fa-solid ${cls[1]}"></i>${e(s)}</span>`;
+}
+
+/* ---- renderers ---- */
+function renderDashboardView() {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  const all = combined();
+  const n = s => all.filter(x => x.status === s).length;
+  document.getElementById('dbTotal').textContent = all.length;
+  document.getElementById('dbPending').textContent = n('PENDING');
+  document.getElementById('dbOngoing').textContent = n('ONGOING');
+  document.getElementById('dbDone').textContent = n('DONE');
+  document.getElementById('dbScopeNote').textContent = isDeptScoped() && currentUser.department ? currentUser.department : 'Lahat ng department';
+
+  // Recent activity (latest 3)
+  const rec = all.slice(0, 3);
+  document.getElementById('dbRecent').innerHTML = rec.length ? rec.map(x => `
+    <div class="act-row">
+      <div style="min-width:0"><div class="act-title" title="${e(x.title)}">${e(x.title)}</div><div class="act-code">${e(x.kind)} · ${e(x.code)}</div></div>
+      <div class="act-desc">${e(x.qty)} · ${e(x.desc || x.dept || '')}</div>
+      <div class="act-who"><span class="avatar ${x.kind === 'RS' ? 'rs' : ''}">${e(initials(x.who))}</span><span>${e(x.who)}</span></div>
+    </div>`).join('') : '<div class="empty">Wala pang records. Magdagdag ng RRS o RS para magsimula.</div>';
+
+  renderBars();
+  renderDonut(all);
+  renderDbTable();
+  renderDeptReport();
+}
+
+function renderBars() {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  const all = combined(), now = new Date(), months = [];
+  for (let i = dbRange - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ y: d.getFullYear(), m: d.getMonth(), count: 0 });
+  }
+  all.forEach(x => {
+    const d = recDate(x); if (!d) return;
+    const slot = months.find(s => s.y === d.getFullYear() && s.m === d.getMonth());
+    if (slot) slot.count++;
+  });
+  const max = Math.max(...months.map(s => s.count));
+  const box = document.getElementById('dbBars');
+  if (!max) { box.innerHTML = '<div class="empty">Wala pang records sa panahong ito.</div>'; return; }
+  const peak = dbHover != null ? dbHover : months.findIndex(s => s.count === max);
+  box.innerHTML = `<div class="bars">${months.map((s, i) => {
+    const h = Math.max(22, Math.round(s.count / max * 150));
+    return `<div class="bar-col ${i === peak ? 'on' : ''}" data-i="${i}" tabindex="0" role="img" aria-label="${MONTHS_FIL_LONG[s.m]} ${s.y}: ${s.count} records">
+      <div class="bar-tip" style="bottom:${h + 26}px">${s.count}</div><div class="bar" style="height:${h}px"></div>
+      <div class="bar-lbl">${MONTHS_FIL[s.m]}</div></div>`;
+  }).join('')}</div>`;
+  box.querySelectorAll('.bar-col').forEach(c => {
+    const set = () => { dbHover = +c.dataset.i; renderBars(); };
+    c.addEventListener('mouseenter', set); c.addEventListener('focus', set); c.addEventListener('click', set);
+  });
+}
+
+function renderDonut(all) {
+  const keys = ['PENDING', 'ONGOING', 'DONE', 'CANCELLED'];
+  const counts = keys.map(k => all.filter(x => x.status === k).length);
+  const total = counts.reduce((a, b) => a + b, 0);
+  const R = 64, C = 2 * Math.PI * R, gap = total > 1 ? 4 : 0;
+  let off = 0, arcs = '';
+  if (!total) arcs = `<circle cx="84" cy="84" r="${R}" fill="none" stroke="#e4e7ec" stroke-width="26"/>`;
+  else counts.forEach((c, i) => {
+    if (!c) return;
+    const len = c / total * C;
+    arcs += `<circle cx="84" cy="84" r="${R}" fill="none" stroke="${STATUS_COLORS[keys[i]]}" stroke-width="26" stroke-dasharray="${Math.max(len - gap, 1)} ${C}" stroke-dashoffset="${-off}"/>`;
+    off += len;
+  });
+  document.getElementById('dbDonut').innerHTML = `
+    <div class="donut"><svg width="168" height="168" viewBox="0 0 168 168" role="img" aria-label="Distribusyon ng status">${arcs}</svg>
+      <div class="donut-c"><b>${total}</b><span>records</span></div></div>
+    <div class="legend">${keys.map((k, i) => `<div><i style="background:${STATUS_COLORS[k]}"></i>${STATUS_LABELS[k]}<b>${counts[i]}${total ? ` <span style="color:var(--muted);font-weight:500">(${Math.round(counts[i] / total * 100)}%)</span>` : ''}</b></div>`).join('')}</div>`;
+}
+
+function renderDbTable() {
+  const tb = document.getElementById('dbTable');
+  if (!tb) return;
+  let list = combined();
+  const searching = !!dbQuery;
+  if (searching) list = list.filter(x => Object.values(x).some(v => String(v).toLowerCase().includes(dbQuery)));
+  document.getElementById('dbTableTitle').textContent = searching ? `Resulta ng paghahanap (${list.length})` : 'Listahan ng mga Record';
+  list = list.slice(0, searching ? 50 : 8);
+  tb.innerHTML = list.length ? list.map(x => `
+    <tr>
+      <td class="code">${e(x.code)}</td>
+      <td><span class="chip">${e(x.kind)}</span></td>
+      <td>${e(x.dept) || '-'}</td>
+      <td style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${e(x.title)}">${e(x.title)}</td>
+      <td>${e(x.qty)}</td>
+      <td>${e(x.who)}</td>
+      <td>${statusPill(x.status)}${x.remarks ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">${e(x.remarks)}</div>` : ''}</td>
+      <td style="text-align:right"><button class="dots-btn" onclick="switchTab('${x.kind.toLowerCase()}')" title="Buksan ang ${e(x.kind)} Records" aria-label="Buksan ang ${e(x.kind)} Records"><i class="fa-solid fa-ellipsis"></i></button></td>
+    </tr>`).join('') : `<tr><td colspan="8" class="empty">${searching ? 'Walang nakitang tugma.' : 'Wala pang records.'}</td></tr>`;
+}
+
+function renderDeptReport() {
+  const tb = document.getElementById('reportDeptTable');
+  if (!tb) return;
+  const all = combined(), depts = {};
+  all.forEach(x => {
+    const d = x.dept || 'Walang department';
+    depts[d] = depts[d] || { RRS: 0, RS: 0, PENDING: 0, ONGOING: 0, DONE: 0, CANCELLED: 0 };
+    depts[d][x.kind]++; if (depts[d][x.status] != null) depts[d][x.status]++;
+  });
+  const rows = Object.entries(depts).sort((a, b) => (b[1].RRS + b[1].RS) - (a[1].RRS + a[1].RS));
+  tb.innerHTML = rows.length ? rows.map(([d, v]) => `<tr><td class="code">${e(d)}</td><td>${v.RRS}</td><td>${v.RS}</td><td>${v.PENDING}</td><td>${v.ONGOING}</td><td>${v.DONE}</td><td>${v.CANCELLED}</td></tr>`).join('')
+    : '<tr><td colspan="7" class="empty">Wala pang datos para sa ulat.</td></tr>';
+}
+
+// Mirror the original pending-approval dot onto the sidebar item
+new MutationObserver(() => {
+  const b = document.getElementById('pendingBadge'), n = document.getElementById('navPending');
+  if (b && n) n.style.display = b.classList.contains('hidden') ? 'none' : '';
+}).observe(document.getElementById('pendingBadge'), { attributes: true, attributeFilter: ['class'] });
+</script>
+
 </body>
 </html>
